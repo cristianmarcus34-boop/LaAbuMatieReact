@@ -13,9 +13,32 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      // Regla para servir sitemap.xml directamente
+      {
+        "source": "/sitemap.xml",
+        "destination": "/sitemap.xml"
+      },
+      // Regla para servir robots.txt directamente
+      {
+        "source": "/robots.txt",
+        "destination": "/robots.txt"
+      },
+      // Regla de fallback para la SPA (React)
       {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      // Asegura que sitemap.xml se sirva con el Content-Type correcto
+      {
+        "source": "/sitemap.xml",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/xml"
+          }
+        ]
       }
     ]
   }

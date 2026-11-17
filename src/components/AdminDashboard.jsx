@@ -1,321 +1,116 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, getDocs, writeBatch, where, setDoc, Timestamp } from 'firebase/firestore'; // Importar Timestamp
+import React, { useState, useEffect, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+
+// Importaciones de componentes y hooks
 import ProductForm from './ProductForm';
-// Importaciones de iconos de Lucide React: Aseguramos que todos los iconos usados en este archivo (incluyendo los de los componentes anidados) estén aquí.
+import OrderDetailsModal from './OrderDetailsModal';
+import JsonImportModal from './JsonImportModal';
+import ConfirmationModal from './ConfirmationModal';
+import CategoryManagementModal from './CategoryManagementModal';
+import ReviewResponseModal from './ReviewResponseModal'; // Importar el nuevo modal de respuesta
+
+import { useAdminData } from '../hooks/useAdminData';
+import { useProductManagement } from '../hooks/useProductManagement';
+import { useOrderManagement } from '../hooks/useOrderManagement';
+import { useReviewManagement } from '../hooks/useReviewManagement';
+import { useCategoryManagement } from '../hooks/useCategoryManagement';
+
+// Iconos de Lucide React
 import {
   Edit, Trash2, PlusCircle, ShoppingBag, Box, LogOut, Filter, Home, MessageSquare, BarChart2,
   DollarSign, ListOrdered, TrendingUp, Eraser, UploadCloud, AlertTriangle, BadgeAlert, Star,
-  Loader2, CheckCheck, List, ImageOff, Search, Tags, XCircle, Save, CalendarDays, Clock, RefreshCw // Nuevo icono para resetear filtros
+  Loader2, CheckCheck, List, ImageOff, Search, Tags, XCircle, Save, CalendarDays, Clock, RefreshCw, Eye, Users, Percent, Package, Reply
 } from 'lucide-react';
 
 
-// Componente para el modal de confirmación genérico
-const ConfirmationModal = ({ isOpen, message, onConfirm, onCancel, confirmText = "Confirmar", cancelText = "Cancelar" }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[100]"> {/* Z-index alto */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-        <p className="text-gray-900 dark:text-gray-100 text-lg mb-6">{message}</p>
-        <div className="flex justify-center space-x-4">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 rounded-md transition-colors duration-200"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors duration-200"
-          >
-            {confirmText}
-          </button>
-        </div>
+// Custom Tooltip para Recharts (para mostrar valores formateados)
+const CustomTooltip = ({ active, payload, label, unit = '' }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="p-3 bg-gray-900 bg-opacity-90 rounded-lg shadow-lg border border-gray-700 text-gray-100 text-sm">
+        <p className="font-bold mb-1">{label}</p>
+        {payload.map((entry, index) => (
+          <p key={`item-${index}`} style={{ color: entry.color }}>
+            {`${entry.name}: ${entry.name.includes('Ventas') || entry.name.includes('Ingresos') ? `$${Math.floor(entry.value)}` : entry.value}${unit}`}
+          </p>
+        ))}
       </div>
-    </div>
-  );
+    );
+  }
+  return null;
 };
 
-
-// Componente para el modal de importación JSON
-const JsonImportModal = ({ onClose, onImport, showNotification, isImporting }) => {
-  const fileInputRef = useRef(null);
-  const [fileName, setFileName] = useState('');
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFileName(file.name);
-    } else {
-      setFileName('');
-    }
-  };
-
-  const handleUploadClick = () => {
-    if (!fileInputRef.current?.files[0]) {
-      showNotification("Por favor, selecciona un archivo JSON primero.", "warning");
-      return;
-    }
-    const file = fileInputRef.current.files[0];
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      try {
-        const json = JSON.parse(e.target.result);
-        onImport(json);
-      } catch (error) {
-        showNotification("Error al parsear el archivo JSON. Asegúrate de que es un JSON válido.", "error");
-        console.error("Error parsing JSON file:", error);
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded-full p-1"
-          aria-label="Cerrar modal de importación"
-        >
-          <XCircle size={24} />
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Importar Productos (JSON)</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-4">
-          Sube un archivo JSON con tus productos. El formato debe ser un array de objetos de producto.
-        </p>
-        {/* CORRECCIÓN: Añadido id y name al input file */}
-        <input
-          type="file"
-          accept=".json"
-          id="jsonFileInput" // Añadido ID
-          name="jsonFile"    // Añadido Name
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="w-full text-gray-700 dark:text-gray-50 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-200 dark:hover:file:bg-blue-800"
-        />
-        {fileName && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Archivo seleccionado: {fileName}</p>}
-        <div className="mt-6 flex justify-end space-x-3">
-          <button
-            onClick={handleUploadClick}
-            disabled={isImporting}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-colors duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isImporting && <Loader2 size={20} className="animate-spin mr-2" />}
-            {isImporting ? 'Importando...' : 'Importar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+// Colores para el Pie Chart de estados de órdenes
+const ORDER_STATUS_COLORS = {
+  'Pending': '#facc15', // yellow-500
+  'Processing': '#3b82f6', // blue-500
+  'Completed': '#22c55e', // green-500
+  'Cancelled': '#ef4444', // red-500
 };
-
-// Componente para el modal de gestión de categorías
-const CategoryManagementModal = ({ isOpen, onClose, categories, onSaveCategory, onDeleteCategory, showNotification }) => {
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingCategoryId, setEditingCategoryId] = useState(null);
-  const [editingCategoryName, setEditingCategoryName] = useState('');
-
-  useEffect(() => {
-    if (!isOpen) {
-      setNewCategoryName('');
-      setEditingCategoryId(null);
-      setEditingCategoryName('');
-    }
-  }, [isOpen]);
-
-  const handleAddCategory = async () => {
-    if (newCategoryName.trim() === '') {
-      showNotification('El nombre de la categoría no puede estar vacío.', 'warning');
-      return;
-    }
-    if (categories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
-      showNotification('Ya existe una categoría con ese nombre.', 'warning');
-      return;
-    }
-    try {
-      await onSaveCategory({ name: newCategoryName.trim() });
-      showNotification('Categoría añadida con éxito.', 'success');
-      setNewCategoryName('');
-    } catch (error) {
-      showNotification(`Error al añadir categoría: ${error.message}`, 'error');
-    }
-  };
-
-  const handleEditClick = (category) => {
-    setEditingCategoryId(category.id);
-    setEditingCategoryName(category.name);
-  };
-
-  const handleSaveEdit = async (categoryId) => {
-    if (editingCategoryName.trim() === '') {
-      showNotification('El nombre de la categoría no puede estar vacío.', 'warning');
-      return;
-    }
-    if (categories.some(cat => cat.id !== categoryId && cat.name.toLowerCase() === editingCategoryName.trim().toLowerCase())) {
-      showNotification('Ya existe otra categoría con ese nombre.', 'warning');
-      return;
-    }
-    try {
-      await onSaveCategory({ id: categoryId, name: editingCategoryName.trim() });
-      showNotification('Categoría actualizada con éxito.', 'success');
-      setEditingCategoryId(null);
-      setEditingCategoryName('');
-    } catch (error) {
-      showNotification(`Error al actualizar categoría: ${error.message}`, 'error');
-    }
-  };
-
-  const handleDeleteClick = async (categoryId) => {
-    // Aquí podrías añadir un modal de confirmación si lo deseas, similar a la eliminación de productos
-    if (window.confirm('¿Estás seguro de que quieres eliminar esta categoría? Los productos de esta categoría no se eliminarán, pero su categoría quedará sin definir.')) {
-      try {
-        await onDeleteCategory(categoryId);
-        showNotification('Categoría eliminada con éxito.', 'info');
-      } catch (error) {
-        showNotification(`Error al eliminar categoría: ${error.message}`, 'error');
-      }
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded-full p-1"
-          aria-label="Cerrar gestión de categorías"
-        >
-          <XCircle size={24} />
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Gestión de Categorías</h2>
-
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Añadir Nueva Categoría</h3>
-          <div className="flex gap-2">
-            {/* CORRECCIÓN: Añadido id y name al input de nueva categoría */}
-            <input
-              type="text"
-              id="newCategoryName" // Añadido ID
-              name="newCategoryName" // Añadido Name
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Nombre de la nueva categoría"
-              className="flex-grow px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-purple-500 focus:border-purple-500"
-            />
-            <button
-              onClick={handleAddCategory}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md shadow-sm transition-colors duration-200"
-            >
-              Añadir
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Categorías Existentes</h3>
-          {categories.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400">No hay categorías definidas.</p>
-          ) : (
-            <ul className="space-y-3">
-              {categories.map(category => (
-                <li key={category.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-md shadow-sm">
-                  {editingCategoryId === category.id ? (
-                    /* CORRECCIÓN: Añadido id y name al input de edición de categoría */
-                    <input
-                      type="text"
-                      id={`editCategory-${category.id}`} // ID único
-                      name={`editCategory-${category.id}`} // Name único
-                      value={editingCategoryName}
-                      onChange={(e) => setEditingCategoryName(e.target.value)}
-                      className="flex-grow px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <span className="text-gray-900 dark:text-gray-100 text-lg">{category.name}</span>
-                  )}
-                  <div className="flex space-x-2 ml-4">
-                    {editingCategoryId === category.id ? (
-                      <button
-                        onClick={() => handleSaveEdit(category.id)}
-                        className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full"
-                        aria-label="Guardar cambios de categoría"
-                      >
-                        <Save size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleEditClick(category)}
-                        className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full"
-                        aria-label="Editar categoría"
-                      >
-                        <Edit size={18} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteClick(category.id)}
-                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full"
-                      aria-label="Eliminar categoría"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 
 const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, hasShownAdminWelcome, setHasShownAdminWelcome, firebaseConfig }) => {
-  const [activeTab, setActiveTab] = useState('products'); // 'products', 'orders', 'reviews', 'metrics', 'categories'
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [categories, setCategories] = useState([]); // Estado para categorías
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('products');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [isCategoryManagementModalOpen, setIsCategoryManagementModalOpen] = useState(false); // Estado para modal de categorías
+  const [isCategoryManagementModalOpen, setIsCategoryManagementModalOpen] = useState(false);
 
-  // Estados para los modales de confirmación
+  const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
-  const [confirmAction, setConfirmAction] = useState(() => () => {}); // Función a ejecutar al confirmar
+  const [confirmAction, setConfirmAction] = useState(() => () => {});
 
-  // Estado para filtros de órdenes
-  const [orderFilterStatus, setOrderFilterStatus] = useState('all'); // 'all', 'pending', 'processing', 'completed', 'cancelled'
-  const [orderFilterDelivery, setOrderFilterDelivery] = useState('all'); // 'all', 'pickup', 'delivery'
-  // NUEVOS ESTADOS PARA FILTROS DE FECHA/HORA
-  const [orderFilterDate, setOrderFilterDate] = useState(''); // Formato 'YYYY-MM-DD'
-  const [orderFilterDayOfWeek, setOrderFilterDayOfWeek] = useState('all'); // 'all', '0' (Domingo) - '6' (Sábado)
-  const [orderFilterTimeFrom, setOrderFilterTimeFrom] = useState(''); // Formato 'HH:MM'
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
-  // NUEVOS ESTADOS PARA FILTROS DE MÉTRICAS (RANGO DE FECHAS)
-  const [metricsStartDate, setMetricsStartDate] = useState(''); // Fecha de inicio para las métricas
-  const [metricsEndDate, setMetricsEndDate] = useState('');     // Fecha de fin para las métricas
+  // NUEVOS ESTADOS para el modal de respuesta de reseñas
+  const [isReviewResponseModalOpen, setIsReviewResponseModalOpen] = useState(false);
+  const [selectedReviewForResponse, setSelectedReviewForResponse] = useState(null);
 
+  // Usar hooks personalizados para la lógica de datos y gestión
+  const {
+    products, orders, reviews, categories, manualFeaturedProductIds,
+    loading, error,
+    productSearchTerm, setProductSearchTerm, productCategoryFilter, setProductCategoryFilter,
+    orderFilterStatus, setOrderFilterStatus, orderFilterDelivery, setOrderFilterDelivery,
+    orderFilterDateFrom, setOrderFilterDateFrom, orderFilterDateTo, setOrderFilterDateTo,
+    orderFilterTimeFrom, setOrderFilterTimeFrom, orderFilterDayOfWeek, setOrderFilterDayOfWeek,
+    reviewFilterRating, setReviewFilterRating, reviewFilterStatus, setReviewFilterStatus,
+    metricsStartDate, setMetricsStartDate, metricsEndDate, setMetricsEndDate,
+    filteredProducts, filteredOrdersForMetrics, filteredReviewsForMetrics,
+    handleResetMetricsDates,
 
-  // Estado para filtros de reseñas
-  const [reviewFilterRating, setReviewFilterRating] = useState('all'); // 'all', '1', '2', '3', '4', '5'
-  const [reviewFilterStatus, setReviewFilterStatus] = useState('all'); // 'all', 'pending', 'approved'
+    // Métricas exportadas del hook useAdminData
+    totalSales,
+    totalOrdersProcessed,
+    averageOrderValue,
+    topSellingProducts,
+    leastSellingProducts,
+    orderStatusDistribution,
+    salesByCategory,
+    salesByDeliveryMethod,
+    mostActiveCustomers,
+    salesTrendData,
+  } = useAdminData(db, appId, showNotification);
 
-  // Estado para productos destacados manualmente
-  const [manualFeaturedProductIds, setManualFeaturedProductIds] = useState([]);
+  const {
+    handleAddProduct, handleEditProduct, handleSaveProduct, handleDeleteProduct,
+    handleImportProducts, handleToggleManualFeatured,
+  } = useProductManagement(db, appId, showNotification);
 
+  const {
+    handleUpdateOrderStatus, handleDeleteOrder, handleClearAllOrders, hasNewOrdersAlert,
+  } = useOrderManagement(db, appId, showNotification, orders);
 
-  // Estados para filtros de productos
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [productCategoryFilter, setProductCategoryFilter] = useState('all');
+  const {
+    handleApproveReview, handleRejectReview, handleAdminRespondToReview, // Importar la nueva función
+  } = useReviewManagement(db, appId, showNotification);
+
+  const {
+    handleSaveCategory, handleDeleteCategory,
+  } = useCategoryManagement(db, appId, showNotification);
 
 
   // Mensaje de bienvenida para el administrador
@@ -326,481 +121,82 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
     }
   }, [hasShownAdminWelcome, setHasShownAdminWelcome, showNotification]);
 
+  // NUEVO: Búsqueda Global
+  const handleGlobalSearch = useCallback((e) => {
+    e.preventDefault();
+    const term = globalSearchTerm.toLowerCase();
 
-  // Cargar productos
-  useEffect(() => {
-    if (!db) return;
-    setLoading(true);
-    const productsColRef = collection(db, `artifacts/${appId}/public/data/products`);
-    const unsubscribe = onSnapshot(productsColRef, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(productsData);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error al cargar productos:", err);
-      setError("Error al cargar productos.");
-      setLoading(false);
-      showNotification("Error al cargar productos.", "error");
-    });
-    return () => unsubscribe();
-  }, [db, appId, showNotification]);
+    const orderMatch = orders.find(order =>
+      order.id.toLowerCase().includes(term) ||
+      order.customerInfo?.name.toLowerCase().includes(term) ||
+      order.customerInfo?.phone.includes(term) ||
+      order.cartItems.some(item => item.name.toLowerCase().includes(term))
+    );
 
-  // Cargar categorías
-  useEffect(() => {
-    if (!db) return;
-    const categoriesColRef = collection(db, `artifacts/${appId}/public/data/categories`);
-    const unsubscribe = onSnapshot(categoriesColRef, (snapshot) => {
-      const categoriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCategories(categoriesData);
-    }, (err) => {
-      console.error("Error al cargar categorías:", err);
-      showNotification("Error al cargar categorías.", "error");
-    });
-    return () => unsubscribe();
-  }, [db, appId, showNotification]);
-
-
-  // Cargar órdenes
-  useEffect(() => {
-    if (!db) return;
-    const ordersColRef = collection(db, `artifacts/${appId}/public/data/orders`);
-    // Siempre traemos las órdenes ordenadas por fecha de creación descendente para el filtrado en cliente
-    // y para asegurar que los rangos de fecha funcionen correctamente.
-    let q = query(ordersColRef); // No aplicar filtros de fecha/hora directamente aquí
-
-    // Aplicar filtros de estado y envío en la consulta de Firestore
-    if (orderFilterStatus !== 'all') {
-      q = query(q, where('status', '==', orderFilterStatus));
-    }
-    if (orderFilterDelivery !== 'all') {
-      q = query(q, where('deliveryMethod', '==', orderFilterDelivery));
+    if (orderMatch) {
+      setActiveTab('orders');
+      showNotification(`Se encontró una orden para "${globalSearchTerm}".`, 'info');
+      return;
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const productMatch = products.find(product =>
+      product.name.toLowerCase().includes(term) ||
+      product.descripcion?.toLowerCase().includes(term) ||
+      product.category?.toLowerCase().includes(term)
+    );
 
-      // --- FILTRADO EN EL CLIENTE (para filtros complejos de fecha/hora) ---
-
-      // 1. Filtrado por fecha específica (día, mes, año)
-      if (orderFilterDate) {
-        const selectedDate = new Date(orderFilterDate);
-        selectedDate.setHours(0, 0, 0, 0); // Inicio del día seleccionado
-        const nextDay = new Date(selectedDate);
-        nextDay.setDate(selectedDate.getDate() + 1); // Inicio del día siguiente
-
-        ordersData = ordersData.filter(order => {
-          const orderTimestamp = order.createdAt?.toDate(); // Convertir Timestamp de Firestore a Date
-          if (!orderTimestamp) return false;
-          return orderTimestamp >= selectedDate && orderTimestamp < nextDay;
-        });
-      }
-
-      // 2. Filtrado por día de la semana
-      if (orderFilterDayOfWeek !== 'all') {
-        const targetDay = parseInt(orderFilterDayOfWeek); // 0 para Domingo, 1 para Lunes, etc.
-        ordersData = ordersData.filter(order => {
-          const orderTimestamp = order.createdAt?.toDate();
-          if (!orderTimestamp) return false;
-          return orderTimestamp.getDay() === targetDay;
-        });
-      }
-
-      // 3. Filtrado por hora a partir de
-      if (orderFilterTimeFrom) {
-        const [hours, minutes] = orderFilterTimeFrom.split(':').map(Number);
-        ordersData = ordersData.filter(order => {
-          const orderTimestamp = order.createdAt?.toDate();
-          if (!orderTimestamp) return false;
-          const orderHours = orderTimestamp.getHours();
-          const orderMinutes = orderTimestamp.getMinutes();
-
-          // Compara la hora: si la hora de la orden es mayor, o si es la misma hora y los minutos son mayores o iguales
-          if (orderHours > hours) return true;
-          if (orderHours === hours && orderMinutes >= minutes) return true;
-          return false;
-        });
-      }
-
-      // Ordenar por fecha de creación (más reciente primero) después de todos los filtros
-      setOrders(ordersData.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0)));
-    }, (err) => {
-      console.error("Error al cargar órdenes:", err);
-      showNotification("Error al cargar órdenes.", "error");
-    });
-    // Las dependencias del useEffect ahora incluyen los nuevos estados de filtro para que se re-ejecute la consulta
-  }, [db, appId, orderFilterStatus, orderFilterDelivery, orderFilterDate, orderFilterDayOfWeek, orderFilterTimeFrom, showNotification]);
-
-  // Cargar reseñas
-  useEffect(() => {
-    if (!db) return;
-    const reviewsColRef = collection(db, `artifacts/${appId}/public/data/product_reviews`);
-    let q = query(reviewsColRef);
-
-    if (reviewFilterRating !== 'all') {
-      q = query(q, where('rating', '==', parseInt(reviewFilterRating)));
-    }
-    if (reviewFilterStatus === 'pending') {
-      q = query(q, where('approved', '==', false));
-    } else if (reviewFilterStatus === 'approved') {
-      q = query(q, where('approved', '==', true));
+    if (productMatch) {
+      setActiveTab('products');
+      setProductSearchTerm(globalSearchTerm);
+      showNotification(`Se encontró un producto para "${globalSearchTerm}".`, 'info');
+      return;
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reviewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setReviews(reviewsData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0))); // Order by timestamp
-    }, (err) => {
-      console.error("Error al cargar reseñas:", err);
-      showNotification("Error al cargar reseñas.", "error");
-    });
-    return () => unsubscribe();
-  }, [db, appId, reviewFilterRating, reviewFilterStatus, showNotification]);
+    const reviewMatch = reviews.find(review =>
+      review.comment?.toLowerCase().includes(term) ||
+      review.productId.toLowerCase().includes(term) ||
+      review.userId?.toLowerCase().includes(term)
+    );
 
-  // Cargar IDs de productos destacados manualmente
-  useEffect(() => {
-    if (!db) return;
-    const featuredConfigDocRef = doc(db, `artifacts/${appId}/public/data/featured_products_config/manual_selection`);
-    const unsubscribe = onSnapshot(featuredConfigDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setManualFeaturedProductIds(data.productIds || []);
-      } else {
-        setManualFeaturedProductIds([]);
-      }
-    }, (err) => {
-      console.error("Error al cargar IDs de productos destacados manuales:", err);
-    });
-    return unsubscribe;
-  }, [db, appId]);
-
-
-  // CRUD de Productos
-  const handleAddProduct = useCallback(() => {
-    setEditingProduct(null);
-    setIsProductFormOpen(true);
-  }, []);
-
-  const handleEditProduct = useCallback((product) => {
-    setEditingProduct(product);
-    setIsProductFormOpen(true);
-  }, []);
-
-  const handleSaveProduct = useCallback(async (productData) => {
-    try {
-      if (editingProduct) {
-        const productRef = doc(db, `artifacts/${appId}/public/data/products`, editingProduct.id);
-        await updateDoc(productRef, productData);
-        showNotification('Producto actualizado con éxito.', 'success');
-      } else {
-        const productsColRef = collection(db, `artifacts/${appId}/public/data/products`);
-        await addDoc(productsColRef, productData);
-        showNotification('Producto añadido con éxito.', 'success');
-      }
-      setIsProductFormOpen(false);
-      setEditingProduct(null);
-    } catch (e) {
-      console.error("Error al guardar producto:", e);
-      showNotification(`Error al guardar producto: ${e.message}`, 'error');
-    }
-  }, [db, appId, editingProduct, showNotification]);
-
-  const handleDeleteProduct = useCallback((productId) => {
-    setConfirmMessage('¿Estás seguro de que quieres eliminar este producto? Esta acción es irreversible.');
-    setConfirmAction(() => async () => {
-      try {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/products`, productId));
-        showNotification('Producto eliminado con éxito.', 'success');
-      } catch (e) {
-        console.error("Error al eliminar producto:", e);
-        showNotification(`Error al eliminar producto: ${e.message}`, 'error');
-      } finally {
-        setIsConfirmModalOpen(false);
-      }
-    });
-    setIsConfirmModalOpen(true);
-  }, [db, appId, showNotification]);
-
-  // CRUD de Categorías
-  const handleSaveCategory = useCallback(async (categoryData) => {
-    try {
-      const categoriesColRef = collection(db, `artifacts/${appId}/public/data/categories`);
-      if (categoryData.id) {
-        // Actualizar categoría existente
-        const categoryRef = doc(categoriesColRef, categoryData.id);
-        await updateDoc(categoryRef, { name: categoryData.name });
-      } else {
-        // Añadir nueva categoría
-        await addDoc(categoriesColRef, { name: categoryData.name });
-      }
-    } catch (e) {
-      console.error("Error al guardar categoría:", e);
-      throw e; // Relanza el error para que el modal lo maneje
-    }
-  }, [db, appId]);
-
-  const handleDeleteCategory = useCallback(async (categoryId) => {
-    try {
-      const categoryRef = doc(db, `artifacts/${appId}/public/data/categories`, categoryId);
-      await deleteDoc(categoryRef);
-      // Opcional: Aquí podrías querer actualizar los productos que tenían esta categoría a 'Sin Categoría' o similar
-      // Por simplicidad, no lo hacemos automáticamente aquí, pero es una consideración importante.
-    } catch (e) {
-      console.error("Error al eliminar categoría:", e);
-      throw e; // Relanza el error para que el modal lo maneje
-    }
-  }, [db, appId]);
-
-
-  // CRUD de Órdenes
-  const handleUpdateOrderStatus = useCallback(async (orderId, newStatus) => {
-    try {
-      const orderRef = doc(db, `artifacts/${appId}/public/data/orders`, orderId);
-      await updateDoc(orderRef, { status: newStatus });
-      showNotification(`Estado de la orden ${orderId.substring(0, 5)}... actualizado a "${newStatus}".`, 'success');
-    } catch (e) {
-      console.error("Error al actualizar estado de orden:", e);
-      showNotification(`Error al actualizar estado de orden: ${e.message}`, 'error');
-    }
-  }, [db, appId, showNotification]);
-
-  // NUEVO: Función para eliminar una orden individual
-  const handleDeleteOrder = useCallback((orderId) => {
-    setConfirmMessage('¿Estás seguro de que quieres eliminar esta orden? Esta acción es irreversible.');
-    setConfirmAction(() => async () => {
-      try {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/orders`, orderId));
-        showNotification('Orden eliminada con éxito.', 'success');
-      } catch (e) {
-        console.error("Error al eliminar orden:", e);
-        showNotification(`Error al eliminar orden: ${e.message}`, 'error');
-      } finally {
-        setIsConfirmModalOpen(false);
-      }
-    });
-    setIsConfirmModalOpen(true);
-  }, [db, appId, showNotification]);
-
-
-  const handleClearAllOrders = useCallback(() => {
-    setConfirmMessage('¿Estás seguro de que quieres eliminar TODAS las órdenes completadas y canceladas?');
-    setConfirmAction(() => async () => {
-      try {
-        const ordersColRef = collection(db, `artifacts/${appId}/public/data/orders`);
-        const q = query(ordersColRef, where('status', 'in', ['completed', 'cancelled']));
-        const snapshot = await getDocs(q);
-        const batch = writeBatch(db);
-        snapshot.docs.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        await batch.commit();
-        showNotification('Órdenes completadas y canceladas eliminadas.', 'success');
-      } catch (e) {
-        console.error("Error al limpiar órdenes:", e);
-        showNotification(`Error al limpiar órdenes: ${e.message}`, 'error');
-      } finally {
-        setIsConfirmModalOpen(false);
-      }
-    });
-    setIsConfirmModalOpen(true);
-  }, [db, appId, showNotification]);
-
-  // Gestión de Reseñas
-  const handleApproveReview = useCallback(async (reviewId) => {
-    try {
-      const reviewRef = doc(db, `artifacts/${appId}/public/data/product_reviews`, reviewId);
-      await updateDoc(reviewRef, { approved: true });
-      showNotification('Reseña aprobada con éxito.', 'success');
-    } catch (e) {
-      console.error("Error al aprobar reseña:", e);
-      showNotification(`Error al aprobar reseña: ${e.message}`, 'error');
-    }
-  }, [db, appId, showNotification]);
-
-  const handleRejectReview = useCallback((reviewId) => {
-    setConfirmMessage('¿Estás seguro de que quieres eliminar esta reseña? Esto la rechazará permanentemente.');
-    setConfirmAction(() => async () => {
-      try {
-        await deleteDoc(doc(db, `artifacts/${appId}/public/data/product_reviews`, reviewId));
-        showNotification('Reseña eliminada/rechazada con éxito.', 'info');
-      } catch (e) {
-        console.error("Error al rechazar reseña:", e);
-        showNotification(`Error al rechazar reseña: ${e.message}`, 'error');
-      } finally {
-        setIsConfirmModalOpen(false);
-      }
-    });
-    setIsConfirmModalOpen(true);
-  }, [db, appId, showNotification]);
-
-
-  // Importación de productos JSON
-  const handleImportProducts = useCallback(async (jsonData) => {
-    setIsImporting(true);
-    try {
-      const batch = writeBatch(db);
-      const productsColRef = collection(db, `artifacts/${appId}/public/data/products`);
-      for (const productData of jsonData) {
-        const docRef = productData.id ? doc(productsColRef, productData.id) : doc(productsColRef);
-        const productToSave = {
-          ...productData,
-          precio: Number(productData.precio) || 0,
-          precioMediaDocena: productData.precioMediaDocena ? Number(productData.precioMediaDocena) : null, // Asegura que se guarde como número o null
-          precioDocena: productData.precioDocena ? Number(productData.precioDocena) : null, // Asegura que se guarde como número o null
-          stock: Number(productData.stock) || 0,
-          sauces: productData.category === 'Pastas' && Array.isArray(productData.sauces)
-            ? productData.sauces.map(s => ({
-                id: s.id || Date.now().toString() + Math.random().toString(36).substring(2, 9),
-                name: s.name || '',
-                price: Number(s.price) || 0,
-                isFree: s.isFree || false,
-              }))
-            : [],
-          flavors: productData.category === 'Pastas' && Array.isArray(productData.flavors)
-            ? productData.flavors.map(f => ({
-                id: f.id || Date.now().toString() + Math.random().toString(36).substring(2, 9),
-                name: f.name || '',
-              }))
-            : [],
-          sizes: productData.category === 'Papas Fritas' && Array.isArray(productData.sizes)
-            ? productData.sizes.map(s => ({
-                id: s.id || Date.now().toString() + Math.random().toString(36).substring(2, 9),
-                name: s.name || '',
-                price: Number(s.price) || 0,
-              }))
-            : [],
-        };
-        batch.set(docRef, productToSave, { merge: true });
-      }
-      await batch.commit();
-      showNotification(`Se importaron ${jsonData.length} productos con éxito.`, 'success', 5000);
-      setIsImportModalOpen(false);
-    } catch (e) {
-      console.error("Error al importar productos:", e);
-      showNotification(`Error al importar productos: ${e.message}`, 'error', 7000);
-    } finally {
-      setIsImporting(false);
-    }
-  }, [db, appId, showNotification]);
-
-  // Gestión de productos destacados manualmente
-  const handleToggleManualFeatured = useCallback(async (productId, isCurrentlyFeatured) => {
-    try {
-      const featuredConfigDocRef = doc(db, `artifacts/${appId}/public/data/featured_products_config/manual_selection`);
-      let updatedFeaturedIds;
-
-      if (isCurrentlyFeatured) {
-        updatedFeaturedIds = manualFeaturedProductIds.filter(id => id !== productId);
-        showNotification('Producto quitado de destacados manuales.', 'info', 1500);
-      } else {
-        updatedFeaturedIds = [...manualFeaturedProductIds, productId];
-        showNotification('Producto añadido a destacados manuales.', 'success', 1500);
-      }
-      await setDoc(featuredConfigDocRef, { productIds: updatedFeaturedIds });
-    } catch (e) {
-      console.error("Error al actualizar productos destacados manuales:", e);
-      showNotification(`Error al actualizar destacados: ${e.message}`, 'error');
-    }
-  }, [db, appId, manualFeaturedProductIds, showNotification]);
-
-  // FILTRADO DE PRODUCTOS
-  const filteredProducts = useMemo(() => {
-    let currentProducts = products;
-
-    // Aplicar filtro por término de búsqueda
-    if (productSearchTerm) {
-      const lowerCaseSearchTerm = productSearchTerm.toLowerCase();
-      currentProducts = currentProducts.filter(
-        (product) =>
-          (product.name && product.name.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (product.descripcion && product.descripcion.toLowerCase().includes(lowerCaseSearchTerm))
-      );
+    if (reviewMatch) {
+      setActiveTab('reviews');
+      showNotification(`Se encontró una reseña para "${globalSearchTerm}".`, 'info');
+      return;
     }
 
-    // Aplicar filtro por categoría
-    if (productCategoryFilter !== 'all') {
-      currentProducts = currentProducts.filter(
-        (product) => product.category === productCategoryFilter
-      );
-    }
-
-    return currentProducts;
-  }, [products, productSearchTerm, productCategoryFilter]);
-
-  // Función para restablecer los filtros de fecha de las métricas
-  const handleResetMetricsDates = useCallback(() => {
-    setMetricsStartDate('');
-    setMetricsEndDate('');
-  }, []);
+    showNotification(`No se encontraron resultados para "${globalSearchTerm}" en ninguna sección.`, 'info');
+  }, [globalSearchTerm, orders, products, reviews, showNotification, setProductSearchTerm]);
 
 
-  // Métricas calculadas (AHORA CON FILTROS DE FECHA)
-  const filteredOrdersForMetrics = useMemo(() => {
-    let filtered = orders;
-    if (metricsStartDate) {
-      const start = new Date(metricsStartDate);
-      start.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(order => {
-        const orderDate = order.createdAt?.toDate();
-        return orderDate && orderDate >= start;
-      });
-    }
-    if (metricsEndDate) {
-      const end = new Date(metricsEndDate);
-      end.setHours(23, 59, 59, 999); // Incluir todo el día final
-      filtered = filtered.filter(order => {
-        const orderDate = order.createdAt?.toDate();
-        return orderDate && orderDate <= end;
-      });
-    }
-    return filtered;
-  }, [orders, metricsStartDate, metricsEndDate]);
+  // Métricas calculadas (ya vienen del hook useAdminData)
+  const totalProducts = products.length;
 
-  const filteredReviewsForMetrics = useMemo(() => {
-    let filtered = reviews;
-    if (metricsStartDate) {
-      const start = new Date(metricsStartDate);
-      start.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(review => {
-        const reviewDate = review.timestamp?.toDate();
-        return reviewDate && reviewDate >= start;
-      });
-    }
-    if (metricsEndDate) {
-      const end = new Date(metricsEndDate);
-      end.setHours(23, 59, 59, 999); // Incluir todo el día final
-      filtered = filtered.filter(review => {
-        const reviewDate = review.timestamp?.toDate();
-        return reviewDate && reviewDate <= end;
-      });
-    }
-    return filtered;
-  }, [reviews, metricsStartDate, metricsEndDate]);
-
-
-  const totalSales = useMemo(() => {
-    return filteredOrdersForMetrics.filter(order => order.status === 'completed').reduce((sum, order) => sum + order.total, 0);
-  }, [filteredOrdersForMetrics]);
-
-  const totalPendingOrders = useMemo(() => {
-    return filteredOrdersForMetrics.filter(order => order.status === 'pending' || order.status === 'processing').length;
-  }, [filteredOrdersForMetrics]);
-
-  const totalProducts = products.length; // No se filtra por fecha, es el total actual
-
-  const averageRating = useMemo(() => {
+  const averageRating = React.useMemo(() => {
     const approvedReviews = filteredReviewsForMetrics.filter(review => review.approved);
     if (approvedReviews.length === 0) return 'N/A';
     const sum = approvedReviews.reduce((acc, review) => acc + review.rating, 0);
     return (sum / approvedReviews.length).toFixed(1);
   }, [filteredReviewsForMetrics]);
 
-  // Las métricas de stock son sobre el inventario actual, no sobre un rango de fechas.
-  const lowStockProducts = useMemo(() => {
+  const lowStockProducts = React.useMemo(() => {
     return products.filter(product => product.stock > 0 && product.stock <= 5).length;
   }, [products]);
 
-  const totalApprovedReviews = useMemo(() => {
+  const totalApprovedReviews = React.useMemo(() => {
     return filteredReviewsForMetrics.filter(review => review.approved).length;
   }, [filteredReviewsForMetrics]);
+
+
+  // Función para abrir el modal de respuesta de reseña
+  const handleOpenReviewResponseModal = useCallback((review) => {
+    setSelectedReviewForResponse(review);
+    setIsReviewResponseModalOpen(true);
+  }, []);
+
+  // Función para guardar la respuesta del admin desde el modal
+  const handleSaveAdminResponse = useCallback(async (reviewId, responseText) => {
+    await handleAdminRespondToReview(reviewId, responseText);
+  }, [handleAdminRespondToReview]);
 
 
   if (loading) {
@@ -850,6 +246,11 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                   className={`w-full text-left flex items-center p-3 rounded-lg transition-colors duration-200 ${activeTab === 'orders' ? 'bg-purple-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                 >
                   <ListOrdered size={20} className="mr-3" /> Gestión de Órdenes
+                  {hasNewOrdersAlert && (
+                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      ¡Nuevas!
+                    </span>
+                  )}
                 </button>
               </li>
               <li className="mb-3">
@@ -865,13 +266,12 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                   onClick={() => setActiveTab('metrics')}
                   className={`w-full text-left flex items-center p-3 rounded-lg transition-colors duration-200 ${activeTab === 'metrics' ? 'bg-purple-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                 >
-                  <BarChart2 size={20} className="mr-3" /> Métricas
+                  <BarChart2 size={20} className="mr-3" /> Métricas y Reportes
                 </button>
               </li>
-              {/* Botón para la gestión de categorías */}
               <li className="mb-3">
                 <button
-                  onClick={() => setIsCategoryManagementModalOpen(true)} // Abre el modal de categorías
+                  onClick={() => setIsCategoryManagementModalOpen(true)}
                   className="w-full text-left flex items-center p-3 rounded-lg transition-colors duration-200 text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   <Tags size={20} className="mr-3" /> Gestión de Categorías
@@ -880,7 +280,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
             </ul>
           </nav>
         </div>
-        <div className="mt-6 lg:mt-auto"> {/* Ajuste de margen superior para móviles */}
+        <div className="mt-6 lg:mt-auto">
           <button
             onClick={onGoToHome}
             className="w-full flex items-center justify-center p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors duration-200 mb-3"
@@ -897,14 +297,37 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
       </aside>
 
       {/* Contenido principal */}
-      <div className="flex-1 p-6 lg:p-8 overflow-y-auto"> {/* Añadido overflow-y-auto para el contenido principal */}
+      <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        {/* Barra de Búsqueda Global */}
+        <form onSubmit={handleGlobalSearch} className="mb-6 flex gap-2">
+          <div className="relative flex-grow">
+            <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              id="globalSearchInput"
+              name="globalSearchInput"
+              placeholder="Buscar productos, órdenes, clientes o reseñas..."
+              value={globalSearchTerm}
+              onChange={(e) => setGlobalSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md shadow-sm transition-colors duration-200"
+            aria-label="Buscar globalmente"
+          >
+            Buscar
+          </button>
+        </form>
+
         {/* Gestión de Productos */}
         {activeTab === 'products' && (
           <div>
             <h2 className="text-3xl font-bold text-gray-100 mb-6">Gestión de Productos</h2>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
               <button
-                onClick={handleAddProduct}
+                onClick={() => handleAddProduct(setIsProductFormOpen, setEditingProduct)}
                 className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
               >
                 <PlusCircle size={20} /> Añadir Nuevo Producto
@@ -921,32 +344,29 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
             <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
                 <div className="relative w-full sm:w-1/2">
                     <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    {/* CORRECCIÓN: Añadido id y name al input de búsqueda de productos */}
                     <input
                         type="text"
-                        id="productSearch" // Añadido ID
-                        name="productSearch" // Añadido Name
+                        id="productSearch"
+                        name="productSearch"
                         placeholder="Buscar por nombre o descripción..."
                         value={productSearchTerm}
                         onChange={(e) => setProductSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                     />
                 </div>
-                {/* CORRECCIÓN: Añadido id y name al select de categoría de productos */}
                 <select
-                    id="productCategoryFilter" // Añadido ID
-                    name="productCategoryFilter" // Añadido Name
+                    id="productCategoryFilter"
+                    name="productCategoryFilter"
                     value={productCategoryFilter}
                     onChange={(e) => setProductCategoryFilter(e.target.value)}
                     className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full sm:w-auto"
                 >
                     <option value="all">Todas las Categorías</option>
-                    {categories.map(cat => ( // Renderiza categorías dinámicamente
+                    {categories.map(cat => (
                       <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
                 </select>
             </div>
-
 
             {filteredProducts.length === 0 && !loading && (
                 <p className="text-center text-gray-400 mt-10">No hay productos para mostrar con los filtros actuales.</p>
@@ -986,7 +406,6 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                         <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{product.name}</td>
                                         <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{product.category || 'N/A'}</td>
                                         <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                                          {/* Mostrar precios de docena/media docena si existen, sino precio unitario */}
                                           {['Empanadas', 'Canastitas'].includes(product.category) ? (
                                             <>
                                               {product.precioDocena > 0 && `$${Math.floor(product.precioDocena)} (Doc.) `}
@@ -1021,7 +440,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                         </td>
                                         <td className="px-6 py-4 text-center whitespace-nowrap">
                                                 <button
-                                                    onClick={() => handleToggleManualFeatured(product.id, isManuallyFeatured)}
+                                                    onClick={() => handleToggleManualFeatured(product.id, isManuallyFeatured, manualFeaturedProductIds)}
                                                     className={`p-2 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2
                                                       ${isManuallyFeatured
                                                         ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600 dark:text-yellow-100 focus:ring-yellow-300'
@@ -1033,14 +452,14 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                             </td>
                                         <td className="px-6 py-4 text-center whitespace-nowrap">
                                             <button
-                                                onClick={() => handleEditProduct(product)}
+                                                onClick={() => handleEditProduct(product, setIsProductFormOpen, setEditingProduct)}
                                                 className="font-medium text-blue-600 dark:text-blue-400 hover:underline mr-3"
                                                 aria-label={`Editar ${product.name}`}
                                             >
                                                 <Edit size={20} className="inline-block" />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteProduct(product.id)}
+                                                onClick={() => handleDeleteProduct(product.id, setConfirmMessage, setConfirmAction, setIsConfirmModalOpen)}
                                                 className="font-medium text-red-600 dark:text-red-400 hover:underline"
                                                 aria-label={`Eliminar ${product.name}`}
                                             >
@@ -1063,10 +482,9 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
             <h2 className="text-3xl font-bold text-gray-100 mb-6">Gestión de Órdenes</h2>
             <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    {/* CORRECCIÓN: Añadido id y name al select de estado de orden */}
                     <select
-                        id="orderStatusFilter" // Añadido ID
-                        name="orderStatusFilter" // Añadido Name
+                        id="orderStatusFilter"
+                        name="orderStatusFilter"
                         value={orderFilterStatus}
                         onChange={(e) => setOrderFilterStatus(e.target.value)}
                         className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full sm:w-auto"
@@ -1077,10 +495,9 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                         <option value="completed">Completado</option>
                         <option value="cancelled">Cancelado</option>
                     </select>
-                    {/* CORRECCIÓN: Añadido id y name al select de tipo de envío de orden */}
                     <select
-                        id="orderDeliveryFilter" // Añadido ID
-                        name="orderDeliveryFilter" // Añadido Name
+                        id="orderDeliveryFilter"
+                        name="orderDeliveryFilter"
                         value={orderFilterDelivery}
                         onChange={(e) => setOrderFilterDelivery(e.target.value)}
                         className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full sm:w-auto"
@@ -1091,63 +508,75 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                     </select>
                 </div>
                 <button
-                    onClick={handleClearAllOrders}
+                    onClick={() => handleClearAllOrders(setConfirmMessage, setConfirmAction, setIsConfirmModalOpen)}
                     className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
                 >
                     <Eraser size={20} /> Limpiar Órdenes Finalizadas
                 </button>
             </div>
 
-            {/* NUEVOS FILTROS DE FECHA Y HORA */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* FILTROS DE FECHA Y HORA */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="relative">
-                    <label htmlFor="orderDateFilter" className="sr-only">Filtrar por fecha específica</label> {/* SR-Only label */}
+                    <label htmlFor="orderDateFromFilter" className="block text-sm font-medium text-gray-400 mb-1">Fecha Desde:</label>
                     <CalendarDays size={20} className="absolute left-3 top-1/2 -translate-y-1/2 mt-2 text-gray-400" />
-                    {/* CORRECCIÓN: Añadido id y name al input de fecha de orden */}
                     <input
                         type="date"
-                        id="orderDateFilter" // Añadido ID
-                        name="orderDateFilter" // Añadido Name
-                        value={orderFilterDate}
-                        onChange={(e) => setOrderFilterDate(e.target.value)}
+                        id="orderDateFromFilter"
+                        name="orderDateFromFilter"
+                        value={orderFilterDateFrom}
+                        onChange={(e) => setOrderFilterDateFrom(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                        title="Filtrar por fecha específica"
+                        title="Filtrar órdenes desde esta fecha"
                     />
                 </div>
                 <div className="relative">
-                    <label htmlFor="orderTimeFilter" className="sr-only">Filtrar órdenes a partir de esta hora</label> {/* SR-Only label */}
+                    <label htmlFor="orderDateToFilter" className="block text-sm font-medium text-gray-400 mb-1">Fecha Hasta:</label>
+                    <CalendarDays size={20} className="absolute left-3 top-1/2 -translate-y-1/2 mt-2 text-gray-400" />
+                    <input
+                        type="date"
+                        id="orderDateToFilter"
+                        name="orderDateToFilter"
+                        value={orderFilterDateTo}
+                        onChange={(e) => setOrderFilterDateTo(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                        title="Filtrar órdenes hasta esta fecha"
+                    />
+                </div>
+                <div className="relative">
+                    <label htmlFor="orderTimeFilter" className="block text-sm font-medium text-gray-400 mb-1">Hora Desde:</label>
                     <Clock size={20} className="absolute left-3 top-1/2 -translate-y-1/2 mt-2 text-gray-400" />
-                    {/* CORRECCIÓN: Añadido id y name al input de hora de orden */}
                     <input
                         type="time"
-                        id="orderTimeFilter" // Añadido ID
-                        name="orderTimeFilter" // Añadido Name
+                        id="orderTimeFilter"
+                        name="orderTimeFilter"
                         value={orderFilterTimeFrom}
                         onChange={(e) => setOrderFilterTimeFrom(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                         title="Filtrar órdenes a partir de esta hora"
                     />
                 </div>
-                {/* CORRECCIÓN: Añadido id y name al select de día de la semana de orden */}
-                <select
-                    id="orderDayOfWeekFilter" // Añadido ID
-                    name="orderDayOfWeekFilter" // Añadido Name
-                    value={orderFilterDayOfWeek}
-                    onChange={(e) => setOrderDayOfWeek(e.target.value)}
-                    className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full"
-                    title="Filtrar por día de la semana"
-                >
-                    <option value="all">Cualquier Día</option>
-                    <option value="1">Lunes</option>
-                    <option value="2">Martes</option>
-                    <option value="3">Miércoles</option>
-                    <option value="4">Jueves</option>
-                    <option value="5">Viernes</option>
-                    <option value="6">Sábado</option>
-                    <option value="0">Domingo</option>
-                </select>
+                <div className="relative">
+                    <label htmlFor="orderDayOfWeekFilter" className="block text-sm font-medium text-gray-400 mb-1">Día de la Semana:</label>
+                    <select
+                        id="orderDayOfWeekFilter"
+                        name="orderDayOfWeekFilter"
+                        value={orderFilterDayOfWeek}
+                        onChange={(e) => setOrderFilterDayOfWeek(e.target.value)}
+                        className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full"
+                        title="Filtrar por día de la semana"
+                    >
+                        <option value="all">Cualquier Día</option>
+                        <option value="1">Lunes</option>
+                        <option value="2">Martes</option>
+                        <option value="3">Miércoles</option>
+                        <option value="4">Jueves</option>
+                        <option value="5">Viernes</option>
+                        <option value="6">Sábado</option>
+                        <option value="0">Domingo</option>
+                    </select>
+                </div>
             </div>
-
 
             {orders.length === 0 && (
                 <p className="text-center text-gray-400 mt-10">No hay órdenes para mostrar con los filtros actuales.</p>
@@ -1167,12 +596,11 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">
                                         {order.id.substring(0, 8)}...
                                     </td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">{order.customerInfo?.name || 'N/A'}</td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">${Math.floor(order.total || 0)}</td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">{order.paymentMethod === 'cash' ? 'Efectivo' : 'Mercado Pago'}</td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">{order.deliveryMethod === 'pickup' ? 'Retiro' : 'Delivery'}</td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">{order.orderType === 'immediate' ? 'Inmediato' : 'Reserva'}</td><td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                                      {order.orderTime ? new Date(order.orderTime).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                      {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                                     </td><td className="px-6 py-4">
-                                        {/* CORRECCIÓN: Añadido id y name al select de estado de orden en la tabla */}
                                         <select
-                                            id={`orderStatus-${order.id}`} // ID único para cada select
-                                            name={`orderStatus-${order.id}`} // Name único para cada select
+                                            id={`orderStatus-${order.id}`}
+                                            name={`orderStatus-${order.id}`}
                                             value={order.status}
                                             onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
                                             className={`px-3 py-1 rounded-md text-sm font-semibold
@@ -1188,9 +616,16 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                             <option value="completed">Completado</option>
                                             <option value="cancelled">Cancelado</option>
                                         </select>
-                                    </td><td className="px-6 py-4 text-center">
+                                    </td><td className="px-6 py-4 text-center whitespace-nowrap">
                                         <button
-                                            onClick={() => handleDeleteOrder(order.id)}
+                                            onClick={() => {setSelectedOrderDetails(order); setIsOrderDetailsModalOpen(true);}}
+                                            className="font-medium text-purple-600 dark:text-purple-400 hover:underline mr-3"
+                                            aria-label={`Ver detalles de orden ${order.id.substring(0, 5)}`}
+                                        >
+                                            <Eye size={20} className="inline-block" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteOrder(order.id, setConfirmMessage, setConfirmAction, setIsConfirmModalOpen)}
                                             className="font-medium text-red-600 dark:text-red-400 hover:underline"
                                             aria-label={`Eliminar orden ${order.id.substring(0, 5)}`}
                                         >
@@ -1211,10 +646,9 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
           <div>
             <h2 className="text-3xl font-bold text-gray-100 mb-6">Gestión de Reseñas</h2>
             <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
-                {/* CORRECCIÓN: Añadido id y name al select de estado de reseña */}
                 <select
-                    id="reviewStatusFilter" // Añadido ID
-                    name="reviewStatusFilter" // Añadido Name
+                    id="reviewStatusFilter"
+                    name="reviewStatusFilter"
                     value={reviewFilterStatus}
                     onChange={(e) => setReviewFilterStatus(e.target.value)}
                     className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full sm:w-auto"
@@ -1223,10 +657,9 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                     <option value="pending">Pendientes</option>
                     <option value="approved">Aprobadas</option>
                 </select>
-                {/* CORRECCIÓN: Añadido id y name al select de calificación de reseña */}
                 <select
-                    id="reviewRatingFilter" // Añadido ID
-                    name="reviewRatingFilter" // Añadido Name
+                    id="reviewRatingFilter"
+                    name="reviewRatingFilter"
                     value={reviewFilterRating}
                     onChange={(e) => setReviewFilterRating(e.target.value)}
                     className="px-4 py-2 rounded-md bg-gray-800 border border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 w-full sm:w-auto"
@@ -1248,11 +681,12 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-200">
                             <tr>
                                 <th scope="col" className="px-6 py-3">Producto ID</th>
-                                <th scope="col" className="px-6 py-3">Usuario ID</th>
+                                <th scope="col" className="px-6 py-3">Usuario</th>
                                 <th scope="col" className="px-6 py-3">Calificación</th>
                                 <th scope="col" className="px-6 py-3">Comentario</th>
                                 <th scope="col" className="px-6 py-3">Fecha</th>
                                 <th scope="col" className="px-6 py-3">Estado</th>
+                                <th scope="col" className="px-6 py-3">Respuesta Admin</th> {/* Nueva columna */}
                                 <th scope="col" className="px-6 py-3 text-center">Acciones</th>
                             </tr>
                         </thead>
@@ -1263,7 +697,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                         {review.productId.substring(0, 8)}...
                                     </td>
                                     <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                                        {review.userId ? `${review.userId.substring(0, 8)}...` : 'Anónimo'}
+                                        {review.userName || (review.userId ? `${review.userId.substring(0, 8)}...` : 'Anónimo')}
                                     </td>
                                     <td className="px-6 py-4 text-yellow-500 flex items-center">
                                         {review.rating} <Star size={16} className="fill-current ml-1" />
@@ -1281,6 +715,15 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                             {review.approved ? 'Aprobada' : 'Pendiente'}
                                         </span>
                                     </td>
+                                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300 max-w-xs overflow-hidden text-ellipsis">
+                                        {review.adminResponse?.text ? (
+                                            <span className="text-blue-400 flex items-center gap-1">
+                                                <Reply size={16} /> Respondida
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-500">Sin respuesta</span>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 text-center whitespace-nowrap">
                                         {!review.approved && (
                                             <button
@@ -1292,7 +735,14 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => handleRejectReview(review.id)}
+                                            onClick={() => handleOpenReviewResponseModal(review)} // Botón para responder
+                                            className="font-medium text-purple-600 dark:text-purple-400 hover:underline mr-3"
+                                            aria-label={`Responder reseña de ${review.productId.substring(0, 5)}`}
+                                        >
+                                            <Reply size={20} className="inline-block" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRejectReview(review.id, setConfirmMessage, setConfirmAction, setIsConfirmModalOpen)}
                                             className="font-medium text-red-600 dark:text-red-400 hover:underline"
                                             aria-label={`Rechazar reseña de ${review.productId.substring(0, 5)}`}
                                         >
@@ -1308,25 +758,24 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
           </div>
         )}
 
-        {/* Métricas */}
+        {/* Métricas y Reportes */}
         {activeTab === 'metrics' && (
-          <div>
-            <h2 className="text-3xl font-bold text-gray-100 mb-6">Métricas del Negocio</h2>
+          <div className="space-y-10">
+            <h2 className="text-3xl font-bold text-gray-100 mb-6">Métricas y Reportes del Negocio</h2>
 
             {/* SECCIÓN DE FILTROS PARA MÉTRICAS */}
-            <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-              <h3 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
-                <Filter size={24} className="text-purple-400" /> Filtrar Métricas por Fecha
+            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+              <h3 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-3">
+                <Filter size={28} className="text-purple-400" /> Filtrar Métricas por Fecha
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div className="relative">
                   <label htmlFor="metricsStartDate" className="block text-sm font-medium text-gray-400 mb-1">Desde:</label>
                   <CalendarDays size={20} className="absolute left-3 top-1/2 -translate-y-1/2 mt-2 text-gray-400" />
-                  {/* CORRECCIÓN: Añadido name al input de fecha de inicio de métricas */}
                   <input
                     type="date"
                     id="metricsStartDate"
-                    name="metricsStartDate" // Añadido Name
+                    name="metricsStartDate"
                     value={metricsStartDate}
                     onChange={(e) => setMetricsStartDate(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-700 border border-gray-600 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
@@ -1336,11 +785,10 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                 <div className="relative">
                   <label htmlFor="metricsEndDate" className="block text-sm font-medium text-gray-400 mb-1">Hasta:</label>
                   <CalendarDays size={20} className="absolute left-3 top-1/2 -translate-y-1/2 mt-2 text-gray-400" />
-                  {/* CORRECCIÓN: Añadido name al input de fecha de fin de métricas */}
                   <input
                     type="date"
                     id="metricsEndDate"
-                    name="metricsEndDate" // Añadido Name
+                    name="metricsEndDate"
                     value={metricsEndDate}
                     onChange={(e) => setMetricsEndDate(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-700 border border-gray-600 text-white focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
@@ -1349,7 +797,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
                 </div>
                 <button
                   onClick={handleResetMetricsDates}
-                  className="w-full px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow-md transition-colors duration-200 flex items-center justify-center gap-2 mt-4 md:mt-0"
+                  className="w-full px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 mt-4 md:mt-0"
                   title="Restablecer filtros de fecha"
                 >
                   <RefreshCw size={20} /> Resetear Fechas
@@ -1357,61 +805,346 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
               </div>
             </div>
 
-            {/* CUADROS DE MÉTRICAS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Ventas Totales</p>
-                  <p className="text-2xl font-bold text-green-400">${Math.floor(totalSales)}</p>
+            {/* SECCIÓN 1: Resumen General de Ventas */}
+            <div className="bg-gray-900 p-6 rounded-xl shadow-2xl border border-gray-700">
+              <h3 className="text-2xl font-bold text-purple-400 mb-6 flex items-center gap-3">
+                <BarChart2 size={32} /> Resumen General de Ventas
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {/* Tarjeta de Ventas Totales */}
+                <div className="bg-gradient-to-br from-green-700 to-green-900 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-green-600">
+                  <div>
+                    <p className="text-sm text-green-200">Ventas Totales</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">${Math.floor(totalSales)}</p>
+                  </div>
+                  <DollarSign size={48} className="text-green-300 opacity-60" />
                 </div>
-                <DollarSign size={40} className="text-green-500 opacity-50" />
-              </div>
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Órdenes Pendientes</p>
-                  <p className="text-2xl font-bold text-yellow-400">{totalPendingOrders}</p>
+                {/* Tarjeta de Órdenes Procesadas */}
+                <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-blue-500">
+                  <div>
+                    <p className="text-sm text-blue-200">Órdenes Procesadas</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">{totalOrdersProcessed}</p>
+                  </div>
+                  <CheckCheck size={48} className="text-blue-300 opacity-60" />
                 </div>
-                <ListOrdered size={40} className="text-yellow-500 opacity-50" />
-              </div>
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Total Productos (Actual)</p> {/* Clarificación de métrica */}
-                  <p className="text-2xl font-bold text-blue-400">{totalProducts}</p>
+                {/* Tarjeta de Valor Promedio del Pedido */}
+                <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-purple-500">
+                  <div>
+                    <p className="text-sm text-purple-200">Valor Promedio del Pedido</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">${averageOrderValue.toFixed(2)}</p>
+                  </div>
+                  <Percent size={48} className="text-purple-300 opacity-60" />
                 </div>
-                <Box size={40} className="text-blue-500 opacity-50" />
+                {/* Tarjeta de Órdenes Pendientes */}
+                <div className="bg-gradient-to-br from-yellow-600 to-yellow-800 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-yellow-500">
+                  <div>
+                    <p className="text-sm text-yellow-200">Órdenes Pendientes</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">{orders.filter(o => o.status === 'pending').length}</p>
+                  </div>
+                  <ListOrdered size={48} className="text-yellow-300 opacity-60" />
+                </div>
+                {/* Tarjeta de Productos con Bajo Stock */}
+                <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-orange-500">
+                  <div>
+                    <p className="text-sm text-orange-200">Productos con Bajo Stock</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">{lowStockProducts}</p>
+                  </div>
+                  <AlertTriangle size={48} className="text-orange-300 opacity-60" />
+                </div>
+                {/* Tarjeta de Reseñas Aprobadas */}
+                <div className="bg-gradient-to-br from-teal-600 to-teal-800 p-6 rounded-xl shadow-xl flex items-center justify-between transform transition-transform hover:scale-105 border border-teal-500">
+                  <div>
+                    <p className="text-sm text-teal-200">Reseñas Aprobadas</p>
+                    <p className="text-3xl font-extrabold text-white mt-1">{totalApprovedReviews}</p>
+                  </div>
+                  <MessageSquare size={48} className="text-teal-300 opacity-60" />
+                </div>
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Valoración Promedio</p>
-                  <p className="text-2xl font-bold text-purple-400">
-                    {averageRating} <Star size={24} className="inline-block fill-current text-yellow-400" />
-                  </p>
-                  {averageRating === 'N/A' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      (No hay reseñas aprobadas en el rango)
-                    </p>
+
+              {/* Gráfico de Tendencias de Ventas */}
+              <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mt-8">
+                <h4 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                  <TrendingUp size={24} className="text-green-400" /> Tendencias de Ventas Diarias
+                </h4>
+                {salesTrendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                      data={salesTrendData}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                      <XAxis dataKey="date" stroke="#cbd5e0" />
+                      <YAxis stroke="#cbd5e0" />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                      />
+                      <Legend wrapperStyle={{ color: '#cbd5e0', paddingTop: '10px' }} />
+                      <Line type="monotone" dataKey="sales" stroke="#8884d8" activeDot={{ r: 8 }} name="Ventas Diarias" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-400 text-center py-10">No hay datos de ventas para mostrar en el gráfico para el rango de fechas seleccionado.</p>
+                )}
+              </div>
+            </div>
+
+            {/* SECCIÓN 2: Rendimiento de Productos */}
+            <div className="bg-gray-900 p-6 rounded-xl shadow-2xl border border-gray-700">
+              <h3 className="text-2xl font-bold text-purple-400 mb-6 flex items-center gap-3">
+                <Package size={32} /> Rendimiento de Productos
+              </h3>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Productos Más Vendidos por Cantidad */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4">Productos Más Vendidos (Top 5 por Cantidad)</h4>
+                  {topSellingProducts.sortedByQuantity.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                          <tr>
+                            <th scope="col" className="px-6 py-3">Producto</th>
+                            <th scope="col" className="px-6 py-3 text-right">Cantidad</th>
+                            <th scope="col" className="px-6 py-3 text-right">Ingresos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {topSellingProducts.sortedByQuantity.slice(0, 5).map((item, index) => (
+                            <tr key={index} className="bg-white border-b border-gray-700 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors duration-200">
+                              <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{item.name}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">${Math.floor(item.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de productos más vendidos para el rango de fechas seleccionado.</p>
                   )}
                 </div>
-                <TrendingUp size={40} className="text-purple-500 opacity-50" />
+
+                {/* Productos Menos Vendidos por Cantidad */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4">Productos Menos Vendidos (Top 5 por Cantidad)</h4>
+                  {leastSellingProducts.sortedByQuantity.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                          <tr>
+                            <th scope="col" className="px-6 py-3">Producto</th>
+                            <th scope="col" className="px-6 py-3 text-right">Cantidad</th>
+                            <th scope="col" className="px-6 py-3 text-right">Ingresos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {leastSellingProducts.sortedByQuantity.slice(0, 5).map((item, index) => (
+                            <tr key={index} className="bg-white border-b border-gray-700 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors duration-200">
+                              <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{item.name}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">${Math.floor(item.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de productos menos vendidos para el rango de fechas seleccionado.</p>
+                  )}
+                </div>
+
+                {/* Productos Más Vendidos por Ingresos */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4">Productos Más Vendidos (Top 5 por Ingresos)</h4>
+                  {topSellingProducts.sortedByRevenue.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                          <tr>
+                            <th scope="col" className="px-6 py-3">Producto</th>
+                            <th scope="col" className="px-6 py-3 text-right">Cantidad</th>
+                            <th scope="col" className="px-6 py-3 text-right">Ingresos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {topSellingProducts.sortedByRevenue.slice(0, 5).map((item, index) => (
+                            <tr key={index} className="bg-white border-b border-gray-700 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors duration-200">
+                              <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{item.name}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">${Math.floor(item.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de productos más vendidos por ingresos para el rango de fechas seleccionado.</p>
+                  )}
+                </div>
+
+                {/* Productos Menos Vendidos por Ingresos */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4">Productos Menos Vendidos (Top 5 por Ingresos)</h4>
+                  {leastSellingProducts.sortedByRevenue.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                          <tr>
+                            <th scope="col" className="px-6 py-3">Producto</th>
+                            <th scope="col" className="px-6 py-3 text-right">Cantidad</th>
+                            <th scope="col" className="px-6 py-3 text-right">Ingresos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {leastSellingProducts.sortedByRevenue.slice(0, 5).map((item, index) => (
+                            <tr key={index} className="bg-white border-b border-gray-700 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors duration-200">
+                              <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{item.name}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                              <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">${Math.floor(item.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de productos menos vendidos por ingresos para el rango de fechas seleccionado.</p>
+                  )}
+                </div>
               </div>
 
-              {/* MÉTRICAS ADICIONALES */}
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Productos con Bajo Stock (Actual)</p> {/* Clarificación de métrica */}
-                  <p className="text-2xl font-bold text-orange-400">{lowStockProducts}</p>
-                </div>
-                <AlertTriangle size={40} className="text-orange-500 opacity-50" />
+              {/* Gráfico de Ventas por Categoría */}
+              <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mt-8">
+                <h4 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                  <Tags size={24} className="text-orange-400" /> Ventas por Categoría
+                </h4>
+                {salesByCategory.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={salesByCategory}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                      <XAxis dataKey="name" stroke="#cbd5e0" />
+                      <YAxis stroke="#cbd5e0" />
+                      <Tooltip
+                        content={<CustomTooltip unit=" $" />}
+                        cursor={{ fill: 'rgba(148, 163, 184, 0.2)' }}
+                      />
+                      <Legend wrapperStyle={{ color: '#cbd5e0', paddingTop: '10px' }} />
+                      <Bar dataKey="sales" fill="#82ca9d" name="Ingresos" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-400 text-center py-10">No hay datos de ventas por categoría para el rango de fechas seleccionado.</p>
+                )}
               </div>
-              <div className="bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Reseñas Aprobadas</p>
-                  <p className="text-2xl font-bold text-teal-400">{totalApprovedReviews}</p>
-                </div>
-                <MessageSquare size={40} className="text-teal-500 opacity-50" />
-              </div>
-
             </div>
+
+            {/* SECCIÓN 3: Análisis de Órdenes */}
+            <div className="bg-gray-900 p-6 rounded-xl shadow-2xl border border-gray-700">
+              <h3 className="text-2xl font-bold text-purple-400 mb-6 flex items-center gap-3">
+                <ListOrdered size={32} /> Análisis de Órdenes
+              </h3>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Gráfico de Distribución de Estados de Órdenes */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                    <List size={24} className="text-blue-400" /> Distribución de Estados de Órdenes
+                  </h4>
+                  {orderStatusDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={orderStatusDistribution}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={100}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {orderStatusDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={ORDER_STATUS_COLORS[entry.name]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={<CustomTooltip />}
+                          formatter={(value, name) => [`${value} órdenes`, name]}
+                        />
+                        <Legend wrapperStyle={{ color: '#cbd5e0', paddingTop: '10px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de estados de órdenes para mostrar.</p>
+                  )}
+                </div>
+
+                {/* Gráfico de Ventas por Método de Entrega */}
+                <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                  <h4 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                    <ShoppingBag size={24} className="text-green-400" /> Ventas por Método de Entrega
+                  </h4>
+                  {salesByDeliveryMethod.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart
+                        data={salesByDeliveryMethod}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                        <XAxis dataKey="name" stroke="#cbd5e0" />
+                        <YAxis stroke="#cbd5e0" />
+                        <Tooltip
+                          content={<CustomTooltip unit=" $" />}
+                          cursor={{ fill: 'rgba(148, 163, 184, 0.2)' }}
+                        />
+                        <Legend wrapperStyle={{ color: '#cbd5e0', paddingTop: '10px' }} />
+                        <Bar dataKey="sales" fill="#8884d8" name="Ingresos" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-gray-400 text-center py-10">No hay datos de ventas por método de entrega para el rango de fechas seleccionado.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 4: Clientes Clave */}
+            <div className="bg-gray-900 p-6 rounded-xl shadow-2xl border border-gray-700">
+              <h3 className="text-2xl font-bold text-purple-400 mb-6 flex items-center gap-3">
+                <Users size={32} /> Clientes Clave (Top 10 por Gasto)
+              </h3>
+              {mostActiveCustomers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                      <tr>
+                        <th scope="col" className="px-6 py-3">Nombre</th>
+                        <th scope="col" className="px-6 py-3">Teléfono</th>
+                        <th scope="col" className="px-6 py-3">Dirección</th>
+                        <th scope="col" className="px-6 py-3 text-right">Órdenes Totales</th>
+                        <th scope="col" className="px-6 py-3 text-right">Gasto Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mostActiveCustomers.map((customer, index) => (
+                        <tr key={index} className="bg-white border-b border-gray-700 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors duration-200">
+                          <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-gray-100">{customer.name}</td>
+                          <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{customer.phone}</td>
+                          <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{customer.address}</td>
+                          <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">{customer.totalOrders}</td>
+                          <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">${Math.floor(customer.totalSpent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-center py-10">No hay datos de clientes clave para mostrar.</p>
+              )}
+            </div>
+
           </div>
         )}
       </div>
@@ -1420,24 +1153,23 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
         <ProductForm
           product={editingProduct}
           onClose={() => setIsProductFormOpen(false)}
-          onSave={handleSaveProduct}
+          onSave={(data) => handleSaveProduct(data, editingProduct, setIsProductFormOpen, setEditingProduct)}
           showNotification={showNotification}
           firebaseConfig={firebaseConfig}
           appId={appId}
-          categories={categories} // PASANDO LAS CATEGORÍAS AL FORMULARIO DE PRODUCTOS
+          categories={categories}
         />
       )}
 
       {isImportModalOpen && (
         <JsonImportModal
           onClose={() => setIsImportModalOpen(false)}
-          onImport={handleImportProducts}
+          onImport={(data) => handleImportProducts(data, setIsImporting, setIsImportModalOpen)}
           showNotification={showNotification}
           isImporting={isImporting}
         />
       )}
 
-      {/* Modal de Gestión de Categorías */}
       {isCategoryManagementModalOpen && (
         <CategoryManagementModal
           isOpen={isCategoryManagementModalOpen}
@@ -1445,6 +1177,26 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
           categories={categories}
           onSaveCategory={handleSaveCategory}
           onDeleteCategory={handleDeleteCategory}
+          showNotification={showNotification}
+        />
+      )}
+
+      {isOrderDetailsModalOpen && selectedOrderDetails && (
+        <OrderDetailsModal
+          isOpen={isOrderDetailsModalOpen}
+          onClose={() => setIsOrderDetailsModalOpen(false)}
+          order={selectedOrderDetails}
+          showNotification={showNotification}
+        />
+      )}
+
+      {/* Nuevo Modal de Respuesta de Reseña */}
+      {isReviewResponseModalOpen && selectedReviewForResponse && (
+        <ReviewResponseModal
+          isOpen={isReviewResponseModalOpen}
+          onClose={() => setIsReviewResponseModalOpen(false)}
+          review={selectedReviewForResponse}
+          onSaveResponse={handleSaveAdminResponse}
           showNotification={showNotification}
         />
       )}

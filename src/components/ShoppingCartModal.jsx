@@ -8,8 +8,9 @@ function ShoppingCartModal({
   onDecreaseQuantity,
   onRemoveItem,
   onClearCart,
-  onViewSummary,
   showNotification,
+  onPlaceOrderDirectly,
+  allProducts, // NUEVO: Ahora recibe la lista completa de productos
 }) {
   const total = useMemo(() => {
     return Math.floor(cartItems.reduce((sum, item) => {
@@ -35,8 +36,6 @@ function ShoppingCartModal({
   }, [cartItems]);
 
   const handleIncrease = useCallback((item) => {
-    // Pass item.id, item.selectedSauce?.id, item.selectedFlavor?.id, item.selectedSize?.id, item.selectedCombinedPizza?.id, item.selectedQuantityType, and item.combinedEmpanadaFlavors to identify unique cart item
-    // Calcular la cantidad total de unidades para la validación de stock
     let unitsPerItem = 1;
     if (['Empanadas y Canastitas'].includes(item.category)) {
       if (item.selectedQuantityType === 'mediaDocena') {
@@ -48,9 +47,8 @@ function ShoppingCartModal({
     const currentTotalUnits = item.quantity * unitsPerItem;
     const newTotalUnitsIfIncreased = (item.quantity + 1) * unitsPerItem;
 
-    // Para combinaciones de empanadas, el stock se refiere al número de "paquetes" (media docena/docena)
     if (item.combinedEmpanadaFlavors) {
-        if (item.quantity + 1 <= item.stock) { // Validar contra el stock del "paquete"
+        if (item.quantity + 1 <= item.stock) {
             onIncreaseQuantity(item.id, item.selectedSauce?.id, item.selectedFlavor?.id, item.selectedSize?.id, item.selectedCombinedPizza?.id, item.selectedQuantityType, item.combinedEmpanadaFlavors);
         } else {
             if (showNotification) {
@@ -58,7 +56,6 @@ function ShoppingCartModal({
             }
         }
     } else {
-        // Lógica de stock para productos normales (unidades)
         if (newTotalUnitsIfIncreased <= item.stock) {
             onIncreaseQuantity(item.id, item.selectedSauce?.id, item.selectedFlavor?.id, item.selectedSize?.id, item.selectedCombinedPizza?.id, item.selectedQuantityType, item.combinedEmpanadaFlavors);
         } else {
@@ -70,8 +67,6 @@ function ShoppingCartModal({
   }, [onIncreaseQuantity, showNotification]);
 
   const handleDecrease = useCallback((item) => {
-    // Pass item.id, item.selectedSauce?.id, item.selectedFlavor?.id, item.selectedSize?.id, item.selectedCombinedPizza?.id, item.selectedQuantityType, and item.combinedEmpanadaFlavors to identify unique cart item
-    // If quantity is 1 and trying to decrease, remove the product
     if (item.quantity > 1) {
       onDecreaseQuantity(item.id, item.selectedSauce?.id, item.selectedFlavor?.id, item.selectedSize?.id, item.selectedCombinedPizza?.id, item.selectedQuantityType, item.combinedEmpanadaFlavors);
     } else {
@@ -85,22 +80,17 @@ function ShoppingCartModal({
 
   const handleClear = useCallback(() => {
     showNotification("Para vaciar el carrito, por favor, confirma la acción.", "info", 3000);
-    onClearCart(); // For immediate action as per original logic, but consider a modal.
+    onClearCart();
   }, [onClearCart, showNotification]);
 
   const handlePlaceOrderClick = useCallback(() => {
-    console.log("ShoppingCartModal: Botón 'Realizar Pedido' presionado. Llamando a onViewSummary (para ir al resumen inicial).");
     if (cartItems.length === 0) {
         showNotification("Tu carrito está vacío. Agrega productos antes de continuar.", "warning", 3000);
         return;
     }
-    if (onViewSummary) {
-      onViewSummary(cartItems); // Pass cartItems to onViewSummary
-    } else {
-      console.warn("ShoppingCartModal: La función onViewSummary no está definida.");
-      showNotification("Error interno: La función para ver el resumen del pedido no está disponible.", "error", 4000);
-    }
-  }, [onViewSummary, showNotification, cartItems]);
+    onClose();
+    onPlaceOrderDirectly();
+  }, [onClose, onPlaceOrderDirectly, showNotification, cartItems]);
 
 
   return (
@@ -137,7 +127,7 @@ function ShoppingCartModal({
           <>
             {/* Lista de ítems del carrito: adaptable con flex-wrap y espaciado */}
             <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-4">
-              {cartItems.map((item) => {
+              {cartItems.map((item, index) => {
                 let itemBasePrice = item.precio || 0;
 
                 // Si es empanada/canastita, el precio base depende del tipo de cantidad
@@ -157,8 +147,7 @@ function ShoppingCartModal({
                 const itemPrice = itemBasePrice + (item.selectedSauce?.price || 0) + (item.selectedFlavor?.price || 0) + (item.selectedSize?.price || 0);
                 const itemSubtotal = Math.floor(itemPrice * item.quantity);
                 return (
-                  // Añadido item.selectedCombinedPizza?.id, item.selectedQuantityType y combinedEmpanadaFlavors a la key para unicidad
-                  <div key={item.id + (item.selectedSauce?.id || '') + (item.selectedFlavor?.id || '') + (item.selectedSize?.id || '') + (item.selectedCombinedPizza?.id || '') + (item.selectedQuantityType || '') + JSON.stringify(item.combinedEmpanadaFlavors || {})} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-600">
+                  <div key={item.id + (item.selectedSauce?.id || '') + (item.selectedFlavor?.id || '') + (item.selectedSize?.id || '') + (item.selectedCombinedPizza?.id || '') + (item.selectedQuantityType || '') + JSON.stringify(item.combinedEmpanadaFlavors || {}) + index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-600">
                     {/* Contenido del ítem: imagen y detalles */}
                     <div className="flex items-center flex-grow w-full sm:w-auto mb-4 sm:mb-0">
                       <img
@@ -173,8 +162,8 @@ function ShoppingCartModal({
                         }}
                       />
 
-                      <div className="flex-1 min-w-0"> {/* min-w-0 es crucial para que el contenido se encoja */}
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg"> {/* Eliminado 'truncate' aquí para permitir que se envuelva */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">
                           {item.name}
                           {item.selectedCombinedPizza && (
                             <span className="text-sm text-gray-500 dark:text-gray-400 block sm:inline-block sm:ml-2">
@@ -192,15 +181,11 @@ function ShoppingCartModal({
                                 <p className="font-medium">Sabores:</p>
                                 <ul className="list-disc list-inside ml-2">
                                     {Object.keys(item.combinedEmpanadaFlavors).map(flavorId => {
-                                        // Aquí necesitarías tener acceso al nombre del producto individual por su ID
-                                        // Para simplificar, asumiremos que el nombre del producto individual está disponible en item.allProducts (si lo pasas)
-                                        // O que puedes buscarlo en tu lista global de productos.
-                                        // Por ahora, mostraré el ID y la cantidad.
-                                        // Si necesitas el nombre real, el item de carrito debería contenerlo o el modal debería tener acceso a `allProducts`
-                                        const individualFlavorProduct = item.allProducts?.find(p => p.id === flavorId); // Asumiendo que item.allProducts se pasa
+                                        // AHORA USAMOS allProducts PARA ENCONTRAR EL NOMBRE DEL SABOR
+                                        const foundFlavor = allProducts?.find(p => p.id === flavorId);
                                         return (
                                             <li key={flavorId}>
-                                                {individualFlavorProduct ? individualFlavorProduct.name : `ID: ${flavorId}`} x{item.combinedEmpanadaFlavors[flavorId]}
+                                                {foundFlavor ? foundFlavor.name : `ID: ${flavorId}`} x{item.combinedEmpanadaFlavors[flavorId]}
                                             </li>
                                         );
                                     })}
@@ -210,17 +195,17 @@ function ShoppingCartModal({
                         <p className="text-gray-600 dark:text-gray-300 text-sm">
                           Precio base: ${Math.floor(item.precio)}
                         </p>
-                        {item.selectedFlavor && ( // Mostrar sabor si existe
+                        {item.selectedFlavor && (
                           <p className="text-gray-600 dark:text-gray-300 text-sm">
                             Sabor: {item.selectedFlavor.name}
                           </p>
                         )}
-                        {item.selectedSauce && ( // Muestra la salsa si existe
+                        {item.selectedSauce && (
                           <p className="text-gray-600 dark:text-gray-300 text-sm">
                             Salsa: {item.selectedSauce.name} {item.selectedSauce.isFree ? '(Gratis)' : `(+$${Math.floor(item.selectedSauce.price)})`}
                           </p>
                         )}
-                        {item.selectedSize && ( // Muestra el tamaño si existe
+                        {item.selectedSize && (
                           <p className="text-gray-600 dark:text-gray-300 text-sm">
                             Tamaño: {item.selectedSize.name} {item.selectedSize.price > 0 ? `(+$${Math.floor(item.selectedSize.price)})` : ''}
                           </p>
@@ -231,14 +216,14 @@ function ShoppingCartModal({
                         {item.stock <= 0 ? (
                           <p className="text-red-500 text-xs font-bold mt-1">¡Agotado!</p>
                         ) : (
-                          item.quantity > item.stock && ( // Esto es para el stock del "paquete" (media docena/docena)
+                          item.quantity > item.stock && (
                             <p className="text-red-500 text-xs font-bold mt-1">Solo quedan {item.stock} paquetes.</p>
                           )
                         )}
                       </div>
                     </div>
                     {/* Controles de cantidad y botón de eliminar: adaptable para móviles */}
-                    <div className="flex items-center space-x-2 w-full sm:w-auto justify-end sm:justify-start mt-4 sm:mt-0"> {/* Ajuste de margen y justificación */}
+                    <div className="flex items-center space-x-2 w-full sm:w-auto justify-end sm:justify-start mt-4 sm:mt-0">
                       <button
                         onClick={() => handleDecrease(item)}
                         className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
@@ -250,7 +235,7 @@ function ShoppingCartModal({
                       <button
                         onClick={() => handleIncrease(item)}
                         className={`p-2 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2
-                          ${item.quantity >= item.stock // Validar contra el stock del "paquete"
+                          ${item.quantity >= item.stock
                             ? 'bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed focus:ring-gray-300'
                             : 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-300'}`}
                         aria-label={`Aumentar cantidad de ${item.name}`}

@@ -1,8 +1,8 @@
 // src/components/OrderSummaryModal.jsx
 import React, { useMemo } from 'react';
-import { XCircle, CheckCircle, ArrowLeft, Send } from 'lucide-react'; // Send para "Continuar al formulario"
+import { XCircle, CheckCircle, ArrowLeft, Send, User, MapPin, CreditCard, Clock, ShoppingBag } from 'lucide-react'; // Añadidos más iconos para profesionalismo
 
-function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotification }) {
+function OrderSummaryModal({ order, onClose, onBack, onConfirmOrderAndSendWhatsApp, showNotification, allProducts }) { // Cambiado onContinue por onConfirmOrderAndSendWhatsApp
   const itemsInOrder = order?.cartItems || [];
   const hasCustomerInfo = !!order?.customerInfo;
 
@@ -35,29 +35,33 @@ function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotificatio
     return null;
   }
 
-  const { customerInfo = {}, paymentMethod, cashAmount, change, deliveryMethod } = order;
+  const { customerInfo = {} } = order; // Destructure customerInfo directly from order
 
   const deliveryMethodText = useMemo(() => {
-    if (deliveryMethod === 'pickup') {
+    if (customerInfo.deliveryMethod === 'pickup') {
       return 'Retiro en el local (Calle 881 N° 5003, Villa la Florida)';
-    } else if (deliveryMethod === 'delivery') {
+    } else if (customerInfo.deliveryMethod === 'delivery') {
       return 'Delivery a domicilio (sin cargo)';
     }
     return 'No especificado';
-  }, [deliveryMethod]);
+  }, [customerInfo.deliveryMethod]);
 
   // Formatear la hora del pedido para mostrar en el resumen
   const formattedOrderTime = useMemo(() => {
-    if (customerInfo.orderTime) {
-      const date = new Date(customerInfo.orderTime);
-      if (customerInfo.orderType === 'immediate') {
-        return `Inmediato (Listo aprox. ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs)`;
-      } else if (customerInfo.orderType === 'reserved') {
-        return `Reservado para las ${date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} hs`;
+    if (customerInfo.orderType === 'immediate') {
+      // Si es un pedido inmediato, usamos el tiempo estimado calculado y pasado desde useOrderFlow
+      if (customerInfo.formattedEstimatedDeliveryTime && customerInfo.estimatedDeliveryMinutes) {
+        return `Inmediato (Listo aprox. ${customerInfo.formattedEstimatedDeliveryTime} hs - Estimado: ${customerInfo.estimatedDeliveryMinutes} min)`;
       }
+      // Fallback si por alguna razón no se pasaron los datos estimados
+      const date = new Date(customerInfo.orderTime);
+      return `Inmediato (Listo aprox. ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs)`;
+    } else if (customerInfo.orderType === 'reserved' && customerInfo.orderTime) {
+      const date = new Date(customerInfo.orderTime);
+      return `Reservado para las ${date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} hs`;
     }
     return 'No especificado';
-  }, [customerInfo.orderTime, customerInfo.orderType]);
+  }, [customerInfo.orderTime, customerInfo.orderType, customerInfo.formattedEstimatedDeliveryTime, customerInfo.estimatedDeliveryMinutes]);
 
 
   return (
@@ -73,47 +77,52 @@ function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotificatio
         </button>
 
         <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">
-          {hasCustomerInfo ? '¡Pedido Confirmado!' : 'Resumen de tu Pedido'}
+          Resumen de tu Pedido
         </h2>
 
-        {hasCustomerInfo && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 p-4 rounded-lg mb-6 shadow-inner flex items-center gap-3">
-            <CheckCircle size={24} className="flex-shrink-0" />
-            <p className="font-semibold">Tu pedido ha sido enviado. ¡Gracias por tu compra!</p>
-          </div>
-        )}
-
-        {/* Detalles del cliente (si ya se ingresaron) */}
-        {hasCustomerInfo && (
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Datos del Cliente</h3>
-            <p className="text-gray-700 dark:text-gray-300"><strong>Nombre:</strong> {customerInfo.name}</p>
-            <p className="text-gray-700 dark:text-gray-300"><strong>Teléfono:</strong> {customerInfo.phone}</p>
-            <p className="text-gray-700 dark:text-gray-300"><strong>Método de Entrega:</strong> {deliveryMethodText}</p>
-            {customerInfo.deliveryMethod === 'delivery' && (
-              <p className="text-gray-700 dark:text-gray-300"><strong>Dirección:</strong> {customerInfo.address}</p>
-            )}
-            <p className="text-gray-700 dark:text-gray-300">
-              <strong>Tipo de Pedido:</strong>{' '}
-              {formattedOrderTime}
-            </p>
-            <p className="text-gray-700 dark:text-gray-300"><strong>Método de Pago:</strong> {customerInfo.paymentMethod === 'cash' ? 'Efectivo' : 'Mercado Pago'}</p>
-            {customerInfo.paymentMethod === 'cash' && customerInfo.cashAmount && (
-              <>
-                <p className="text-gray-700 dark:text-gray-300"><strong>Paga con:</strong> ${customerInfo.cashAmount}</p>
-                <p className="text-gray-700 dark:text-gray-300"><strong>Vuelto:</strong> ${customerInfo.change}</p>
-              </>
-            )}
-            {customerInfo.notes && (
-              <p className="text-gray-700 dark:text-gray-300"><strong>Notas:</strong> {customerInfo.notes}</p>
-            )}
-          </div>
-        )}
-
-        {/* Lista de productos en el pedido */}
+        {/* Sección de Datos del Cliente */}
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Productos</h3>
-          <ul className="space-y-2">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <User size={20} className="text-blue-500" /> Datos del Cliente
+          </h3>
+          <p className="text-gray-700 dark:text-gray-300 mb-2"><strong>Nombre:</strong> {customerInfo.name}</p>
+          <p className="text-700 dark:text-gray-300 mb-2"><strong>Teléfono:</strong> {customerInfo.phone}</p>
+          
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4 mb-2 flex items-center gap-2">
+            <MapPin size={18} className="text-purple-500" /> Método de Entrega
+          </h4>
+          <p className="text-gray-700 dark:text-gray-300 mb-2">{deliveryMethodText}</p>
+          {customerInfo.deliveryMethod === 'delivery' && (
+            <p className="text-gray-700 dark:text-gray-300 mb-2"><strong>Dirección:</strong> {customerInfo.address}</p>
+          )}
+
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4 mb-2 flex items-center gap-2">
+            <CreditCard size={18} className="text-green-500" /> Información de Pago
+          </h4>
+          <p className="text-gray-700 dark:text-gray-300 mb-2"><strong>Método de Pago:</strong> {customerInfo.paymentMethod === 'cash' ? 'Efectivo' : 'Mercado Pago'}</p>
+          {customerInfo.paymentMethod === 'cash' && customerInfo.cashAmount && (
+            <>
+              <p className="text-gray-700 dark:text-gray-300 mb-2"><strong>Paga con:</strong> ${customerInfo.cashAmount}</p>
+              <p className="text-gray-700 dark:text-gray-300 mb-2"><strong>Vuelto:</strong> ${customerInfo.cashAmount - total}</p>
+            </>
+          )}
+
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4 mb-2 flex items-center gap-2">
+            <Clock size={18} className="text-orange-500" /> Horario del Pedido
+          </h4>
+          <p className="text-gray-700 dark:text-gray-300 mb-2">{formattedOrderTime}</p>
+
+          {customerInfo.notes && (
+            <p className="text-gray-700 dark:text-gray-300 mt-4"><strong>Notas:</strong> {customerInfo.notes}</p>
+          )}
+        </div>
+
+        {/* Sección de Productos en el Pedido */}
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <ShoppingBag size={20} className="text-red-500" /> Productos
+          </h3>
+          <ul className="space-y-4">
             {itemsInOrder.map((item, index) => {
               let itemBasePrice = item.precio || 0;
 
@@ -134,50 +143,49 @@ function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotificatio
               const itemPrice = itemBasePrice + (item.selectedSauce?.price || 0) + (item.selectedFlavor?.price || 0) + (item.selectedSize?.price || 0);
 
               return (
-                // Añadido item.selectedCombinedPizza?.id, item.selectedQuantityType y combinedEmpanadaFlavors a la key para unicidad
-                <li key={item.id + (item.selectedSauce?.id || '') + (item.selectedFlavor?.id || '') + (item.selectedSize?.id || '') + (item.selectedCombinedPizza?.id || '') + (item.selectedQuantityType || '') + JSON.stringify(item.combinedEmpanadaFlavors || {}) + index} className="flex justify-between items-center text-gray-700 dark:text-gray-300 flex-wrap">
+                <li key={item.id + (item.selectedSauce?.id || '') + (item.selectedFlavor?.id || '') + (item.selectedSize?.id || '') + (item.selectedCombinedPizza?.id || '') + (item.selectedQuantityType || '') + JSON.stringify(item.combinedEmpanadaFlavors || {}) + index} 
+                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-gray-700 dark:text-gray-300 p-3 rounded-lg bg-white dark:bg-gray-750 shadow-sm border border-gray-100 dark:border-gray-650">
                   <div className="flex-1 min-w-0">
-                    {item.name}
+                    <p className="font-semibold text-lg">{item.name}</p>
                     {item.selectedCombinedPizza && (
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block sm:inline-block sm:ml-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         (Mitad {item.name} + Mitad {item.selectedCombinedPizza.name})
-                      </span>
+                      </p>
                     )}
                     {['Empanadas y Canastitas'].includes(item.category) && item.selectedQuantityType && (
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block sm:inline-block sm:ml-2">
-                        ({item.quantity} {item.selectedQuantityType === 'docena' ? 'Docena(s)' : item.selectedQuantityType === 'mediaDocena' ? 'Media(s) Docena(s)' : 'Unidad(es)'})
-                      </span>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Cantidad: {item.quantity} {item.selectedQuantityType === 'docena' ? 'Docena(s)' : item.selectedQuantityType === 'mediaDocena' ? 'Media(s) Docena(s)' : 'Unidad(es)'}
+                      </p>
                     )}
-                    {!item.selectedCombinedPizza && !['Empanadas y Canastitas'].includes(item.category) && ` x ${item.quantity}`} {/* Solo muestra "x cantidad" si no es pizza combinada ni empanada/canastita combinada */}
-                    {item.selectedFlavor && ( // Muestra el sabor si existe
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block sm:inline-block sm:ml-2">
-                        (Sabor: {item.selectedFlavor.name})
-                      </span>
+                    {!item.selectedCombinedPizza && !['Empanadas y Canastitas'].includes(item.category) && 
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Cantidad: {item.quantity}</p>}
+                    
+                    {item.selectedFlavor && ( 
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Sabor: {item.selectedFlavor.name}
+                      </p>
                     )}
-                    {item.selectedSauce && ( // Muestra la salsa si existe
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block sm:inline-block sm:ml-2">
-                        (Salsa: {item.selectedSauce.name}
-                        {!item.selectedSauce.isFree && item.selectedSauce.price > 0 && ` +$${Math.floor(item.selectedSauce.price)}`}
-                        )
-                      </span>
+                    {item.selectedSauce && ( 
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Salsa: {item.selectedSauce.name}
+                        {!item.selectedSauce.isFree && item.selectedSauce.price > 0 && ` (+$${Math.floor(item.selectedSauce.price)})`}
+                      </p>
                     )}
-                    {item.selectedSize && ( // Muestra el tamaño si existe
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block sm:inline-block sm:ml-2">
-                        (Tamaño: {item.selectedSize.name}
-                        {item.selectedSize.price > 0 && ` +$${Math.floor(item.selectedSize.price)}`}
-                        )
-                      </span>
+                    {item.selectedSize && ( 
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Tamaño: {item.selectedSize.name}
+                        {item.selectedSize.price > 0 && ` (+$${Math.floor(item.selectedSize.price)})`}
+                      </p>
                     )}
                     {item.combinedEmpanadaFlavors && Object.keys(item.combinedEmpanadaFlavors).length > 0 && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 w-full">
-                            <p className="font-medium">Sabores seleccionados:</p>
-                            <ul className="list-disc list-inside ml-2">
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-md w-full">
+                            <p className="font-medium mb-1">Sabores de Empanadas/Canastitas:</p>
+                            <ul className="list-disc list-inside ml-4 space-y-0.5">
                                 {Object.keys(item.combinedEmpanadaFlavors).map(flavorId => {
-                                    // Utiliza item.allProducts para encontrar el nombre real del sabor
-                                    const foundFlavor = item.allProducts?.find(p => p.id === flavorId);
+                                    const foundFlavor = allProducts?.find(p => p.id === flavorId);
                                     return (
                                         <li key={flavorId}>
-                                            {foundFlavor ? foundFlavor.name : `ID: ${flavorId}`} x{item.combinedEmpanadaFlavors[flavorId]}
+                                            {foundFlavor ? foundFlavor.name : `Sabor ID: ${flavorId}`} x{item.combinedEmpanadaFlavors[flavorId]}
                                         </li>
                                     );
                                 })}
@@ -185,18 +193,18 @@ function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotificatio
                         </div>
                     )}
                   </div>
-                  <span className="font-semibold mt-2 sm:mt-0">${Math.floor(itemPrice * item.quantity)}</span>
+                  <span className="font-bold text-lg mt-2 sm:mt-0 sm:ml-4">${Math.floor(itemPrice * item.quantity)}</span>
                 </li>
               );
             })}
           </ul>
-          <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3 flex justify-between items-center text-xl font-bold text-gray-900 dark:text-gray-100">
-            <span>Total:</span>
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-6 flex justify-between items-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <span>Total del Pedido:</span>
             <span>${total}</span>
           </div>
         </div>
 
-        {paymentMethod === 'mercadopago' && !hasCustomerInfo && (
+        {customerInfo.paymentMethod === 'mercadopago' && (
           <>
             <p className="text-center text-blue-600 dark:text-blue-400 font-medium mb-4">
               Serás redirigido a Mercado Pago para completar tu pago.
@@ -212,18 +220,18 @@ function OrderSummaryModal({ order, onClose, onBack, onContinue, showNotificatio
           <button
             onClick={onBack}
             className="w-full sm:w-auto bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-300"
-            aria-label="Volver"
+            aria-label="Volver al formulario"
           >
-            <ArrowLeft size={20} className="inline-block mr-2" /> {hasCustomerInfo ? 'Seguir Comprando' : 'Volver al Carrito'}
+            <ArrowLeft size={20} className="inline-block mr-2" /> Volver al Formulario
           </button>
 
           <button
-            onClick={onContinue}
+            onClick={onConfirmOrderAndSendWhatsApp}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Continuar"
+            aria-label="Confirmar y Enviar a WhatsApp"
             disabled={itemsInOrder.length === 0}
           >
-            {hasCustomerInfo ? 'Cerrar' : 'Continuar al Pedido'} <Send size={20} />
+            Confirmar y Enviar a WhatsApp <Send size={20} />
           </button>
         </div>
       </div>
