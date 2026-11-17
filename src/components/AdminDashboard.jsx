@@ -201,7 +201,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
+      <div className="lam-admin-dashboard min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
         <Loader2 size={48} className="animate-spin text-purple-500" />
         <p className="ml-4 text-xl">Cargando panel de administración...</p>
       </div>
@@ -210,7 +210,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 text-red-400 p-4">
+      <div className="lam-admin-dashboard min-h-screen flex flex-col items-center justify-center bg-gray-950 text-red-400 p-4">
         <AlertTriangle size={48} className="mb-4" />
         <p className="text-xl font-semibold mb-2">Error al cargar el panel:</p>
         <p className="text-lg text-center">{error}</p>
@@ -225,7 +225,7 @@ const AdminDashboard = ({ db, appId, onLogout, showNotification, onGoToHome, has
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col lg:flex-row">
+    <div className="lam-admin-dashboard min-h-screen bg-gray-950 text-gray-100 flex flex-col lg:flex-row">
       {/* Sidebar de navegación */}
       <aside className="bg-gray-900 w-full lg:w-64 p-6 lg:p-4 border-b border-gray-700 lg:border-r lg:border-b-0 flex flex-col justify-between">
         <div>

@@ -158,7 +158,7 @@ const ProductReviewPage = ({ db, appId, userId, showNotification }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-6 sm:p-8">
+    <div className="lam-review-page min-h-screen bg-gray-950 text-gray-100 p-6 sm:p-8">
       <div className="max-w-4xl mx-auto bg-gray-900 rounded-xl shadow-2xl p-6 sm:p-8 border border-gray-700">
         <h1 className="text-4xl font-extrabold text-purple-400 mb-8 text-center">Deja tu Reseña</h1>
 

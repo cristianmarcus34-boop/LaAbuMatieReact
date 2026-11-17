@@ -21,9 +21,9 @@ import AdBadge from './components/AdBadge';
 
 // Iconos e Imagenes
 import {
-  ShoppingCart, Search, Sun, Moon, ArrowUp, Heart,
-  LogOut, LayoutDashboard, Loader2, AlertTriangle,
-  MousePointerClick, FileText, CheckCircle, Star
+  ShoppingCart, Search, Sun, Moon, Heart,
+  LayoutDashboard, Loader2, FileText,
+  ArrowRight, ChefHat, MapPin, Sparkles, UtensilsCrossed
 } from 'lucide-react';
 
 // Hooks Personalizados
@@ -41,6 +41,7 @@ import { useOrderFlow } from './hooks/useOrderFlow';
 import { useAdminWelcome } from './hooks/useAdminWelcome';
 
 import './App.css';
+import './theme.css';
 
 function App() {
   const { showManualUpdatePrompt, confirmUpdate } = useServiceWorkerUpdate();
@@ -193,151 +194,202 @@ function App() {
 
         <Routes>
           <Route path="/" element={
-            <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-4 sm:p-8">
-              {/* Botones Flotantes */}
-              <div className="fixed top-6 left-6 flex space-x-4 z-50">
-                <button onClick={toggleDarkMode} className="bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg">
-                  {isDarkMode ? <Sun className="text-yellow-400" /> : <Moon className="text-gray-600" />}
-                </button>
-                {userProfile?.role === 'admin' && (
-                  <button onClick={() => navigate('/dashboard-admin')} className="bg-green-600 text-white p-3 rounded-full shadow-lg">
-                    <LayoutDashboard />
+            <div className="lam-store min-h-screen">
+              <header className="lam-header">
+                <div className="lam-header-inner">
+                  <button type="button" className="lam-brand" onClick={handleGoToHome} aria-label="La Abu Matie, inicio">
+                    <img src="/LaAbuMatieLogo.jpeg" alt="" />
+                    <span>
+                      <strong>La Abu Matie</strong>
+                      <small>Rotisería · Villa La Florida</small>
+                    </span>
                   </button>
-                )}
-              </div>
-
-              {/* Header Logo y Título */}
-              <div className="mt-16 mb-12 flex flex-col items-center gap-4">
-                <img src="/LaAbuMatieLogo.jpeg" className="w-32 h-32 rounded-full border-4 border-orange-500 shadow-xl animate-pizza-jiggle" alt="Logo" />
-                <h1 className="text-5xl md:text-7xl font-black text-center bg-gradient-to-r from-orange-700 to-yellow-500 bg-clip-text text-transparent">
-                  La Abu Matie App
-                </h1>
-              </div>
+                  <nav className="lam-header-actions" aria-label="Navegación principal">
+                    <button className="lam-nav-link" onClick={() => document.getElementById('lam-menu')?.scrollIntoView({ behavior: 'smooth' })}>
+                      Menú
+                    </button>
+                    <button className="lam-nav-link" onClick={() => document.getElementById('lam-reviews')?.scrollIntoView({ behavior: 'smooth' })}>
+                      Reseñas
+                    </button>
+                    {userProfile?.role === 'admin' && (
+                      <button className="lam-admin-link" onClick={() => navigate('/dashboard-admin')}>
+                        <LayoutDashboard size={17} /> Administración
+                      </button>
+                    )}
+                    <button className="lam-theme-button" onClick={toggleDarkMode} aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}>
+                      {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+                  </nav>
+                </div>
+              </header>
 
               {/* Notificación de Actualización */}
               {hasUpdate && (
-                <div onClick={refreshPage} className="fixed bottom-32 left-1/2 -translate-x-1/2 bg-orange-500 text-white px-6 py-3 rounded-full shadow-2xl cursor-pointer z-50 animate-bounce">
-                  🔄 Nueva versión disponible - Toca para actualizar
-                </div>
+                <button onClick={refreshPage} className="lam-update-banner">
+                  Hay una nueva versión disponible <ArrowRight size={16} />
+                </button>
               )}
 
-              {/* Botón Carrito Flotante */}
-              <button
-                onClick={() => setIsCartModalOpen(true)}
-                className={`fixed bottom-10 right-6 p-4 rounded-full shadow-2xl z-40 flex items-center gap-2 text-white transition-all ${cartItems.length > 0 ? 'bg-red-600 scale-110' : 'bg-emerald-600'}`}
-              >
-                <ShoppingCart size={28} />
-                <span className="text-xl font-bold">{cartItems.length}</span>
-              </button>
-
-              {/* Sección de Instrucciones de Pedido Detallada */}
-              <section className="max-w-4xl mx-auto my-16 p-8 bg-gradient-to-br from-yellow-50 to-orange-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl shadow-xl border border-yellow-200 dark:border-gray-600 animate-fade-in-down">
-                <h2 className="text-4xl font-bold text-center text-orange-700 dark:text-orange-300 mb-8 drop-shadow-md">
-                  ¡Así de Fácil es Pedir!
-                </h2>
-                <p className="text-lg text-gray-700 dark:text-gray-300 text-center mb-10">
-                  Sigue estos simples pasos para disfrutar de nuestros deliciosos sabores caseros:
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-
-                  {/* Paso 1 */}
-                  <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform hover:scale-105 transition-transform duration-300">
-                    <div className="bg-red-500 text-white p-4 rounded-full mb-4 shadow-md">
-                      <MousePointerClick size={36} />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">1. Elige tus Favoritos</h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Explora nuestro menú y presiona el botón "Añadir al Carrito" en los productos que más te gusten.
+              <main>
+                <section className="lam-hero">
+                  <div className="lam-hero-copy">
+                    <p className="lam-eyebrow"><Sparkles size={15} /> Cocina casera, hecha con cariño</p>
+                    <h1>Un sabor que<br /><em>se siente en casa.</em></h1>
+                    <p className="lam-hero-description">
+                      Platos abundantes, recetas de siempre y ese toque casero que convierte cada comida en un buen momento.
                     </p>
-                  </div>
-
-                  {/* Paso 2 */}
-                  <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform hover:scale-105 transition-transform duration-300">
-                    <div className="bg-emerald-500 text-white p-4 rounded-full mb-4 shadow-md">
-                      <ShoppingCart size={36} />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">2. Revisa tu Carrito</h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Cuando estés listo, haz clic en el icono del carrito (<ShoppingCart size={20} className="inline-block" />) en la esquina inferior derecha para ver tu selección.
-                    </p>
-                  </div>
-
-                  {/* Paso 3 */}
-                  <div className="flex flex-col items-center p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform hover:scale-105 transition-transform duration-300">
-                    <div className="bg-purple-500 text-white p-4 rounded-full mb-4 shadow-md">
-                      <FileText size={36} />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">3. Confirma y Envía</h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Desde el carrito, presiona "Realizar Pedido" y sigue las sencillas instrucciones para completar tu compra. ¡Listo!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-10 text-center text-gray-800 dark:text-gray-200 text-lg font-medium flex items-center justify-center gap-2">
-                  <CheckCircle size={24} className="text-green-500" />
-                  ¡Prepara tu paladar para el sabor casero de La Abu Matie!
-                </div>
-              </section>
-
-              {/* Reseñas y Contenido Principal */}
-              <ReviewDisplaySection db={db} appId={actualFirebaseProjectId} showNotification={showNotification} />
-
-              <div className="space-y-10 max-w-7xl mx-auto pb-20">
-                <FeaturedProductsSection
-                  featuredProducts={featuredProducts}
-                  onAddToCart={handleAddToCart}
-                  onOpenDetails={handleOpenProductDetails}
-                  favoriteProductIds={favoriteProductIds}
-                  onToggleFavorite={toggleFavorite}
-                />
-
-                <div className="my-10 flex justify-center">
-                  <AdBadge targetUrl="https://www.krustyburger.com.ar" />  {/* <--- AÑADIDO AQUÍ */}
-                </div>
-
-                {/* Acordeón de Favoritos */}
-                {favoriteProducts.length > 0 && (
-                  <div className="rounded-2xl overflow-hidden shadow-lg border dark:border-gray-800">
-                    <button onClick={() => toggleCategoria('Favoritos')} className="w-full p-6 bg-emerald-600 text-white flex justify-between font-bold text-2xl">
-                      <span><Heart className="inline mr-2 fill-current" /> Favoritos ({favoriteProducts.length})</span>
-                      <span>{categoriasAbiertas['Favoritos'] ? '−' : '+'}</span>
-                    </button>
-                    {categoriasAbiertas['Favoritos'] && (
-                      <div className="p-6 bg-white dark:bg-gray-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {favoriteProducts.map(p => (
-                          <ProductCard key={p.id} producto={p} onAddToCart={handleAddToCart} onOpenDetails={handleOpenProductDetails} isFavorite={true} onToggleFavorite={toggleFavorite} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Categorías Dinámicas */}
-                {sortedProductosPorCategoria.map(([categoria, items]) => (
-                  items.length > 0 && (
-                    <div key={categoria} className="rounded-2xl overflow-hidden shadow-lg border dark:border-gray-800">
-                      <button onClick={() => toggleCategoria(categoria)} className="w-full p-6 bg-orange-500 text-white flex justify-between font-bold text-2xl capitalize">
-                        <span>{categoria} ({items.length})</span>
-                        <span>{categoriasAbiertas[categoria] ? '−' : '+'}</span>
+                    <div className="lam-hero-actions">
+                      <button className="lam-primary-button" onClick={() => document.getElementById('lam-menu')?.scrollIntoView({ behavior: 'smooth' })}>
+                        Descubrir el menú <ArrowRight size={18} />
                       </button>
-                      {categoriasAbiertas[categoria] && (
-                        <div className="p-6 bg-white dark:bg-gray-800">
-                          <div className="relative mb-6 max-w-md mx-auto">
-                            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 rounded-lg border dark:bg-gray-700 dark:text-white" />
-                            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {items.map(p => (
-                              <ProductCard key={p.id} producto={p} onAddToCart={handleAddToCart} onOpenDetails={handleOpenProductDetails} isFavorite={favoriteProductIds.includes(p.id)} onToggleFavorite={toggleFavorite} />
+                      <button className="lam-secondary-button" onClick={() => document.getElementById('lam-reviews')?.scrollIntoView({ behavior: 'smooth' })}>
+                        Conocé nuestras reseñas
+                      </button>
+                    </div>
+                    <div className="lam-hero-note">
+                      <MapPin size={16} /> Villa La Florida, Quilmes
+                    </div>
+                  </div>
+                  <div className="lam-hero-image">
+                    <img src="/img/milanesa-napolitana-fritas.jfif" alt="Milanesa casera con papas fritas" />
+                    <div className="lam-image-caption">
+                      <span className="lam-caption-icon"><ChefHat size={20} /></span>
+                      <span><strong>Como hecho en casa</strong><small>Recetas con sabor de familia</small></span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="lam-how-it-works" aria-labelledby="lam-how-title">
+                  <div className="lam-section-heading">
+                    <p className="lam-eyebrow">Simple y rico</p>
+                    <h2 id="lam-how-title">Tu próximo antojo, en pocos pasos</h2>
+                  </div>
+                  <div className="lam-steps-grid">
+                    <article className="lam-step-card">
+                      <span className="lam-step-number">01</span>
+                      <span className="lam-step-icon"><UtensilsCrossed size={21} /></span>
+                      <h3>Elegí tus favoritos</h3>
+                      <p>Recorré el menú y encontrá algo rico para compartir.</p>
+                    </article>
+                    <article className="lam-step-card">
+                      <span className="lam-step-number">02</span>
+                      <span className="lam-step-icon"><ShoppingCart size={21} /></span>
+                      <h3>Armá tu pedido</h3>
+                      <p>Sumá tus platos al carrito y revisá cada detalle.</p>
+                    </article>
+                    <article className="lam-step-card">
+                      <span className="lam-step-number">03</span>
+                      <span className="lam-step-icon"><FileText size={21} /></span>
+                      <h3>Confirmá y disfrutá</h3>
+                      <p>Completá tus datos y coordiná tu pedido fácilmente.</p>
+                    </article>
+                  </div>
+                </section>
+
+                <div className="lam-menu-content">
+                  <FeaturedProductsSection
+                    featuredProducts={featuredProducts}
+                    onAddToCart={handleAddToCart}
+                    onOpenDetails={handleOpenProductDetails}
+                    favoriteProductIds={favoriteProductIds}
+                    onToggleFavorite={toggleFavorite}
+                  />
+
+                  <section className="lam-menu-section" id="lam-menu">
+                    <div className="lam-menu-heading">
+                      <div>
+                        <p className="lam-eyebrow">Hecho para disfrutar</p>
+                        <h2>Nuestro menú</h2>
+                        <p>Buscá tu próximo favorito entre nuestras opciones caseras.</p>
+                      </div>
+                      <label className="lam-search">
+                        <Search size={19} aria-hidden="true" />
+                        <input
+                          type="search"
+                          aria-label="Buscar en el menú"
+                          placeholder="¿Qué se te antoja?"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                          <button type="button" onClick={() => setSearchTerm('')} aria-label="Borrar búsqueda">
+                            ×
+                          </button>
+                        )}
+                      </label>
+                    </div>
+
+                    <div className="lam-category-chips" aria-label="Categorías del menú">
+                      {sortedProductosPorCategoria.map(([categoria, items]) => (
+                        <button
+                          key={categoria}
+                          className={categoriasAbiertas[categoria] ? 'lam-category-chip is-active' : 'lam-category-chip'}
+                          onClick={() => toggleCategoria(categoria)}
+                        >
+                          {categoria}<span>{items.length}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {favoriteProducts.length > 0 && (
+                      <section className="lam-category-panel">
+                        <button className="lam-category-heading" onClick={() => toggleCategoria('Favoritos')} aria-expanded={Boolean(categoriasAbiertas.Favoritos)}>
+                          <span><Heart size={20} /> Tus favoritos <small>{favoriteProducts.length} productos</small></span>
+                          <span className="lam-category-toggle">{categoriasAbiertas.Favoritos ? '−' : '+'}</span>
+                        </button>
+                        {categoriasAbiertas.Favoritos && (
+                          <div className="lam-product-grid">
+                            {favoriteProducts.map(p => (
+                              <ProductCard key={p.id} producto={p} onAddToCart={handleAddToCart} onOpenDetails={handleOpenProductDetails} isFavorite={true} onToggleFavorite={toggleFavorite} />
                             ))}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                ))}
-              </div>
+                        )}
+                      </section>
+                    )}
+
+                    {sortedProductosPorCategoria.map(([categoria, items]) => {
+                      const isCategoryOpen = Boolean(categoriasAbiertas[categoria]) || Boolean(searchTerm.trim());
+                      return items.length > 0 && (
+                        <section className="lam-category-panel" key={categoria}>
+                          <button className="lam-category-heading" onClick={() => toggleCategoria(categoria)} aria-expanded={isCategoryOpen}>
+                            <span>{categoria}<small>{items.length} opciones</small></span>
+                            <span className="lam-category-toggle">{isCategoryOpen ? '−' : '+'}</span>
+                          </button>
+                          {isCategoryOpen && (
+                            <div className="lam-product-grid">
+                              {items.map(p => (
+                                <ProductCard key={p.id} producto={p} onAddToCart={handleAddToCart} onOpenDetails={handleOpenProductDetails} isFavorite={favoriteProductIds.includes(p.id)} onToggleFavorite={toggleFavorite} />
+                              ))}
+                            </div>
+                          )}
+                        </section>
+                      );
+                    })}
+                    {searchTerm && sortedProductosPorCategoria.length === 0 && (
+                      <p className="lam-empty-search">No encontramos productos para “{searchTerm}”. Probá con otra búsqueda.</p>
+                    )}
+                  </section>
+
+                  <div className="lam-partner-promo">
+                    <AdBadge targetUrl="https://www.krustyburger.com.ar" />
+                  </div>
+                </div>
+
+                <div id="lam-reviews">
+                  <ReviewDisplaySection db={db} appId={actualFirebaseProjectId} showNotification={showNotification} />
+                </div>
+              </main>
+
+              {/* Carrito accesible mientras se recorre el menú */}
+              <button
+                onClick={() => setIsCartModalOpen(true)}
+                className="lam-floating-cart"
+                aria-label={`Abrir carrito, ${cartItems.length} productos`}
+              >
+                <ShoppingCart size={20} />
+                <span>Mi pedido</span>
+                <span className="lam-cart-count">{cartItems.length}</span>
+              </button>
 
               {/* Render de Modales de la Parte 2 */}
               {isCartModalOpen && (

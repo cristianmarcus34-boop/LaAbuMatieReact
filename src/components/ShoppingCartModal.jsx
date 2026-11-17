@@ -94,9 +94,9 @@ function ShoppingCartModal({
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 animate-fade-in">
+    <div className="lam-modal-overlay fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 animate-fade-in">
       {/* Contenedor principal del modal: Ancho máximo adaptable y altura máxima */}
-      <div id="shopping-cart-modal-content" className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-xl sm:max-w-2xl lg:max-w-3xl transform scale-95 animate-scale-in max-h-[90vh] flex flex-col">
+      <div id="shopping-cart-modal-content" className="lam-modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-xl sm:max-w-2xl lg:max-w-3xl transform scale-95 animate-scale-in max-h-[90vh] flex flex-col">
         {/* Encabezado del carrito */}
         <div className="flex justify-between items-center mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">

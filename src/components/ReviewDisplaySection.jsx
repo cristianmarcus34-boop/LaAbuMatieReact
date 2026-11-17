@@ -67,7 +67,7 @@ const ReviewDisplaySection = ({ db, appId, showNotification }) => {
   }
 
   return (
-    <section className="max-w-6xl mx-auto my-16 p-8 bg-gray-900 rounded-3xl shadow-2xl border border-gray-700 animate-fade-in-down">
+    <section className="lam-reviews-section max-w-6xl mx-auto my-16 p-8 bg-gray-900 rounded-3xl shadow-2xl border border-gray-700 animate-fade-in-down">
       <h2 className="text-4xl font-extrabold text-teal-400 mb-10 text-center drop-shadow-md flex items-center justify-center gap-4">
         <MessageSquare size={48} /> Lo que dicen nuestros clientes
       </h2>
@@ -84,7 +84,7 @@ const ReviewDisplaySection = ({ db, appId, showNotification }) => {
             const productImage = productInfo?.image;
 
             return (
-              <div key={review.id} className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 flex flex-col justify-between transform transition-transform hover:scale-105 duration-300">
+              <article key={review.id} className="lam-review-card bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 flex flex-col justify-between transition-transform duration-300">
                 <div>
                   <div className="flex items-center mb-3">
                     <User size={20} className="text-blue-400 mr-2" />
@@ -140,7 +140,7 @@ const ReviewDisplaySection = ({ db, appId, showNotification }) => {
                     </p>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>

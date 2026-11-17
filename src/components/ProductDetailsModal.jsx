@@ -577,9 +577,9 @@ function ProductDetailsModal({
 
   return (
     // Contenedor principal del modal: Fijo, cubre toda la pantalla, centrado y con fondo oscuro
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 animate-fade-in">
+    <div className="lam-modal-overlay fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 animate-fade-in">
       {/* Contenido del modal: Responsive, con ancho máximo y scroll si es necesario */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-xl md:max-w-3xl lg:max-w-4xl transform scale-95 animate-scale-in max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div className="lam-modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-xl md:max-w-3xl lg:max-w-4xl transform scale-95 animate-scale-in max-h-[90vh] overflow-y-auto custom-scrollbar">
         {/* Botón de cerrar: Posición absoluta, responsivo */}
         <button
           onClick={onClose}

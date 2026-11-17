@@ -33,7 +33,7 @@ const Footer = ({
 
   return (
     // AÑADIDO: mt-16 y rounded-t-3xl
-    <footer className="bg-gray-900 dark:bg-gray-950 text-gray-300 py-10 sm:py-12 relative z-0 mt-16 rounded-t-3xl">
+    <footer className="lam-footer bg-gray-900 dark:bg-gray-950 text-gray-300 py-10 sm:py-12 relative z-0 mt-16 rounded-t-3xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center md:items-start gap-8">
         {/* Sección de Navegación Rápida */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left mb-6 md:mb-0">

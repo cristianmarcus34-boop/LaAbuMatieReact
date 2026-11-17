@@ -249,7 +249,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
     // Contenedor principal de la tarjeta: responsivo, con sombras y transiciones.
     // La opacidad y escala de grises se aplican si el producto está agotado.
     <div
-      className={`relative bg-white dark:bg-gray-800 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden
+      className={`lam-product-card relative bg-white dark:bg-gray-800 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden
         ${isOutOfStock ? 'opacity-70 grayscale' : ''}`}
     >
       {/* Botón de Favoritos: Posicionado en la esquina superior derecha, con estilos dinámicos. */}
@@ -267,7 +267,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
       {/* Imagen del Producto: Ocupa el ancho completo, con altura fija y efecto hover. */}
       {/* El clic en la imagen también abre los detalles del producto. */}
       <div
-        className="w-full h-56 bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden cursor-pointer rounded-t-2xl"
+        className="lam-product-image w-full h-56 bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden cursor-pointer rounded-t-2xl"
         onClick={handleOpenDetailsClick}
       >
         {producto.image ? (
@@ -285,22 +285,22 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
       </div>
 
       {/* Información del Producto: Contenedor flexible para el contenido textual. */}
-      <div className="p-4 sm:p-6 flex-grow flex flex-col">
+      <div className="lam-product-body p-4 sm:p-6 flex-grow flex flex-col">
         {/* Título del Producto: Negrita, con efecto hover y clic para abrir detalles. */}
         <h3
-          className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 cursor-pointer hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200"
+          className="lam-product-title text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 cursor-pointer hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200"
           onClick={handleOpenDetailsClick}
         >
           {producto.name}
         </h3>
         {/* Descripción del Producto: Texto truncado a dos líneas para mantener la uniformidad. */}
-        <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base flex-grow mb-3 line-clamp-2">
+        <p className="lam-product-description text-gray-600 dark:text-gray-300 text-sm sm:text-base flex-grow mb-3 line-clamp-2">
           {producto.descripcion}
         </p>
 
         {/* Precio y Reseñas: Mostrados en una fila con espacio entre ellos. */}
         <div className="flex justify-between items-center mb-4">
-          <p className="text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-400">
+          <p className="lam-product-price text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-400">
             {displayPrice}
           </p>
           {averageRating > 0 && (
@@ -322,7 +322,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                   key={flavor.id}
                   className={`flex items-center px-4 py-2 rounded-full border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md
                     ${selectedFlavor?.id === flavor.id
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white border-blue-700'
+                      ? 'bg-[#a24732] text-white border-[#a24732]'
                       : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                     }`}
                   onClick={(e) => e.stopPropagation()} // Detiene la propagación en el label
@@ -352,7 +352,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                   key={sauce.id}
                   className={`flex items-center px-4 py-2 rounded-full border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md
                     ${selectedSauce?.id === sauce.id
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white border-blue-700'
+                      ? 'bg-[#a24732] text-white border-[#a24732]'
                       : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                     }`}
                   onClick={(e) => e.stopPropagation()} // Detiene la propagación en el label
@@ -385,7 +385,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                   key={size.id}
                   className={`flex items-center px-4 py-2 rounded-full border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md
                     ${selectedSize?.id === size.id
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white border-blue-700'
+                      ? 'bg-[#a24732] text-white border-[#a24732]'
                       : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                     }`}
                   onClick={(e) => e.stopPropagation()} // Detiene la propagación en el label
@@ -422,7 +422,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                   onClick={(e) => { e.stopPropagation(); setSelectedQuantityType('unit'); setQuantity(1); }} // Resetear cantidad a 1 al cambiar tipo
                   className={`flex-1 min-w-[90px] px-3 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 border-2 shadow-sm
                     ${selectedQuantityType === 'unit'
-                      ? 'bg-gradient-to-r from-red-600 to-red-800 text-white border-red-800'
+                      ? 'bg-[#a24732] text-white border-[#a24732]'
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                     } disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed`}
                   disabled={isOutOfStock}
@@ -435,7 +435,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                     onClick={(e) => { e.stopPropagation(); setSelectedQuantityType('half-dozen'); setQuantity(1); }} // Resetear cantidad a 1
                     className={`flex-1 min-w-[90px] px-3 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 border-2 shadow-sm
                       ${selectedQuantityType === 'half-dozen'
-                        ? 'bg-gradient-to-r from-red-600 to-red-800 text-white border-red-800'
+                        ? 'bg-[#a24732] text-white border-[#a24732]'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                       } disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed`}
                     disabled={isOutOfStock || producto.stock < 6} // Deshabilitar si no hay stock para media docena
@@ -449,7 +449,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                     onClick={(e) => { e.stopPropagation(); setSelectedQuantityType('dozen'); setQuantity(1); }} // Resetear cantidad a 1
                     className={`flex-1 min-w-[90px] px-3 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 border-2 shadow-sm
                       ${selectedQuantityType === 'dozen'
-                        ? 'bg-gradient-to-r from-red-600 to-red-800 text-white border-red-800'
+                        ? 'bg-[#a24732] text-white border-[#a24732]'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
                       } disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed`}
                     disabled={isOutOfStock || producto.stock < 12} // Deshabilitar si no hay stock para docena
@@ -489,10 +489,10 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
               {(selectedQuantityType === 'half-dozen' || selectedQuantityType === 'dozen') ? (
                 <button
                   onClick={handleOpenCombineModal} // Abre el modal de combinación de empanadas
-                  className={`flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
+                  className={`lam-add-to-cart flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
                     ${disableCombineButton
                       ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed disabled:opacity-40 disabled:grayscale'
-                      : 'bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 focus:ring-indigo-500'}`
+                      : 'bg-[#65704e] hover:bg-[#515a3f] focus:ring-[#65704e]'}`
                   }
                   aria-label={disableCombineButton ? "Agotado" : `Combinar ${selectedQuantityType === 'half-dozen' ? '1/2 Docena' : 'Docena'}`}
                   disabled={disableCombineButton}
@@ -502,7 +502,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
               ) : (
                 <button
                   onClick={handleAddToCartDirectly} // Añade la unidad al carrito
-                  className={`flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
+                  className={`lam-add-to-cart flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
                     ${disableAddToCartDirectlyButton
                       ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed disabled:opacity-40 disabled:grayscale'
                       : 'bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 focus:ring-red-500'}`
@@ -542,7 +542,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
               {/* Botón Añadir al Carrito para Pizza completa */}
               <button
                 onClick={handleAddToCartDirectly}
-                className={`flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
+                className={`lam-add-to-cart flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-4 transform hover:scale-105
                   ${disableAddToCartDirectlyButton
                     ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed disabled:opacity-40 disabled:grayscale'
                     : 'bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 focus:ring-red-500'}`
@@ -558,7 +558,7 @@ const ProductCard = React.memo(({ producto, onAddToCart, onOpenDetails, isFavori
                 className={`flex items-center justify-center gap-2 text-white text-base sm:text-lg font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 w-full mt-2 transform hover:scale-105
                   ${disableCombineButton
                     ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed disabled:opacity-40 disabled:grayscale'
-                    : 'bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 focus:ring-indigo-500'}`
+                    : 'bg-[#65704e] hover:bg-[#515a3f] focus:ring-[#65704e]'}`
                 }
                 aria-label={disableCombineButton ? "Agotado" : "Combinar Pizza"}
                 disabled={disableCombineButton}

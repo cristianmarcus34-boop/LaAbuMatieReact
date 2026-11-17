@@ -71,8 +71,8 @@ const PowaContactForm = ({ onClose, showNotification }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-800 to-indigo-900 bg-opacity-90 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 xl:p-20 z-50">
-            <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg lg:max-w-xl xl:max-w-3xl transform transition-all duration-300 scale-95 md:scale-100 animate-slide-in-up border-4 border-transparent hover:border-purple-500 dark:hover:border-indigo-400 max-h-[90vh] overflow-y-auto">
+        <div className="lam-contact-overlay fixed inset-0 bg-gradient-to-br from-purple-800 to-indigo-900 bg-opacity-90 flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 xl:p-20 z-50">
+            <div className="lam-contact-card relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg lg:max-w-xl xl:max-w-3xl transform transition-all duration-300 scale-95 md:scale-100 animate-slide-in-up border-4 border-transparent hover:border-purple-500 dark:hover:border-indigo-400 max-h-[90vh] overflow-y-auto">
 
                 {/* Close Button */}
                 <button

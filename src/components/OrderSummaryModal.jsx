@@ -65,8 +65,8 @@ function OrderSummaryModal({ order, onClose, onBack, onConfirmOrderAndSendWhatsA
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fade-in custom-scrollbar overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl transform animate-slide-in-up relative my-8 overflow-y-auto max-h-[90vh]">
+    <div className="lam-modal-overlay fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 animate-fade-in custom-scrollbar overflow-y-auto">
+      <div className="lam-modal-content bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl transform animate-slide-in-up relative my-8 overflow-y-auto max-h-[90vh]">
         {/* Botón de cerrar */}
         <button
           onClick={onClose}
